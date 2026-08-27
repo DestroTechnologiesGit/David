@@ -6,8 +6,8 @@ Two independent web apps sit behind one Caddy reverse proxy:
 
 | App | Path | What it is |
 | --- | --- | --- |
-| **Kokoro TTS** | `/kokoro/` | Text-to-speech with background music, document import, and live streaming |
-| **OpenClaw Studio** | `/studio` | Simplified NotebookLM-style chat UI for the OpenClaw gateway |
+| **Voice Studio** | `/kokoro/` | Text-to-speech with background music, document import, and live streaming |
+| **LiveContent Studio** | `/studio` | Simplified NotebookLM-style chat UI |
 | OpenClaw Control UI | `/` | The vendor's own admin console (unmodified) |
 
 ---
@@ -27,6 +27,12 @@ Two independent web apps sit behind one Caddy reverse proxy:
 
 ---
 
+> **Branding.** Both UIs are presented as **LiveContent** products — the Kokoro
+> and OpenClaw names appear nowhere in the interfaces. The underlying software
+> is unchanged; only the user-facing copy differs. API values such as
+> `openclaw/default` are still required and are kept behind an *Advanced*
+> section in the Studio settings.
+
 ## Repository layout
 
 ```
@@ -34,14 +40,14 @@ Two independent web apps sit behind one Caddy reverse proxy:
 ├── Caddyfile.openclaw          Caddy config for all three apps
 ├── Caddyfile.openclaw.bak      Previous version, kept for rollback
 ├── assets/companyLogo.jpeg     LiveContent logo (embedded into both UIs)
-├── kokoro-frontend.html        Kokoro TTS browser UI (self-contained)
+├── kokoro-frontend.html        Voice Studio browser UI (self-contained)
 ├── kokoro-web/
 │   ├── server.py               Authenticated HTTP bridge to the Kokoro CLI
 │   ├── .env.example            Config template — copy to .env
 │   └── .env                    Local config (gitignored)
 ├── kokoro-tts/                 Kokoro TTS CLI source (upstream, vendored)
 └── openclaw-ui/
-    ├── index.html              OpenClaw Studio UI (self-contained)
+    ├── index.html              LiveContent Studio UI (self-contained)
     ├── serve.py                Local dev server (not used in production)
     └── README.md               Studio-specific notes
 ```
@@ -170,6 +176,17 @@ file is ever uploaded.
 
 A simplified three-panel chat UI. It does **not** replace the built-in Control
 UI, which stays at `/`.
+
+**Add source** opens a dialog that starts a conversation from:
+
+- a **document** — PDF, Word `.docx`, or `.txt`, by drag-and-drop or file
+  picker. Text is extracted in the browser and seeded as context; files are
+  never uploaded anywhere.
+- **pasted text**
+- a **research topic** — handed to the agent, which uses whatever tools it has
+  configured. There is no separate search backend; the gateway exposes search
+  to agents as a tool, not over HTTP.
+- a **blank conversation**
 
 ### 2.1 Enable the chat endpoint
 

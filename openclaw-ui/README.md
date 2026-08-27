@@ -1,10 +1,14 @@
-# OpenClaw Studio — simplified frontend
+# LiveContent Studio — simplified frontend
 
-A NotebookLM-style three-panel interface for the OpenClaw gateway, built as a
-single self-contained HTML file. It does **not** replace or modify the built-in
+A NotebookLM-style three-panel interface, built as a single self-contained
+HTML file. It is presented as a LiveContent product; the OpenClaw name does
+not appear in the UI. It does **not** replace or modify the built-in
 OpenClaw Control UI, which stays available at its own URL for admin work.
 
-- **Sources** — conversations, stored in the browser
+- **Sources** — conversations, stored in the browser. **Add source** opens a
+  dialog to start one from a document (PDF / `.docx` / `.txt`, drag-and-drop or
+  file picker, parsed in the browser), pasted text, a research topic handed to
+  the agent, or a blank chat
 - **Chat** — streaming replies from the gateway
 - **Studio** — Notes and an Audio Overview button wired to the Kokoro TTS bridge
 

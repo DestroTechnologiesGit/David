@@ -550,6 +550,158 @@
     .studio-tab.active { background: var(--accent-soft); color: var(--accent); }
     .studio-tab svg { width: 19px; height: 19px; }
 
+    /* ---- Add source dialog ---- */
+    #dlgSource {
+        max-width: 620px;
+        width: calc(100% - 40px);
+        position: relative;
+        overflow: visible;
+    }
+
+    .dlg-x {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        width: 34px;
+        height: 34px;
+        border: none;
+        border-radius: 50%;
+        background: none;
+        color: var(--ink-soft);
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        transition: background 0.15s;
+    }
+
+    .dlg-x:hover { background: #f1f3f4; }
+    .dlg-x svg { width: 18px; height: 18px; }
+
+    .src-head {
+        padding: 34px 32px 0;
+        text-align: center;
+    }
+
+    .src-head h2 {
+        margin: 0 0 8px;
+        font-size: 23px;
+        font-weight: 600;
+        letter-spacing: -0.2px;
+    }
+
+    .src-head p {
+        margin: 0;
+        font-size: 13.5px;
+        color: var(--ink-faint);
+    }
+
+    .src-body { padding: 24px 32px 30px; }
+
+    .src-search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 2px solid var(--accent);
+        border-radius: 26px;
+        padding: 6px 6px 6px 20px;
+        background: #fff;
+    }
+
+    .src-search input {
+        flex: 1;
+        border: none;
+        outline: none;
+        font: inherit;
+        font-size: 14.5px;
+        padding: 9px 0;
+        background: none;
+        color: inherit;
+    }
+
+    .src-go {
+        width: 38px;
+        height: 38px;
+        border: none;
+        border-radius: 50%;
+        background: var(--accent);
+        color: #fff;
+        cursor: pointer;
+        flex: none;
+        display: grid;
+        place-items: center;
+        transition: background 0.15s;
+    }
+
+    .src-go:hover:not(:disabled) { background: #1765cc; }
+    .src-go:disabled { background: #dadce0; cursor: default; }
+    .src-go svg { width: 18px; height: 18px; }
+
+    .src-hint {
+        margin: 10px 4px 0;
+        font-size: 12.5px;
+        color: var(--ink-faint);
+        line-height: 1.5;
+    }
+
+    .src-drop {
+        margin-top: 22px;
+        border: 2px dashed var(--line);
+        border-radius: 14px;
+        padding: 30px 24px;
+        text-align: center;
+        transition: border-color 0.15s, background 0.15s;
+    }
+
+    .src-drop.over {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+    }
+
+    .src-drop-title { font-size: 17px; font-weight: 500; }
+
+    .src-drop-sub {
+        font-size: 12.5px;
+        color: var(--ink-faint);
+        margin-top: 6px;
+    }
+
+    .src-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .src-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 18px;
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        background: #fff;
+        font-size: 13.5px;
+        font-family: inherit;
+        color: var(--ink);
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s;
+    }
+
+    .src-btn:hover { background: #f8f9fa; border-color: #d2d5d9; }
+    .src-btn svg { width: 16px; height: 16px; color: var(--ink-soft); }
+
+    .src-status {
+        margin-top: 16px;
+        font-size: 13px;
+        line-height: 1.55;
+        min-height: 20px;
+        color: var(--ink-soft);
+    }
+
+    .src-status.error { color: #c5221f; }
+    .src-status.ok { color: #137333; }
+
     /* ---- Settings dialog ---- */
     dialog {
         border: none;
@@ -597,6 +749,34 @@
         border-color: var(--accent);
         box-shadow: 0 0 0 1px var(--accent);
     }
+
+    .field-advanced {
+        margin-bottom: 16px;
+        border-top: 1px solid var(--line);
+        padding-top: 14px;
+    }
+
+    .field-advanced summary {
+        cursor: pointer;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--ink-soft);
+        list-style: none;
+        user-select: none;
+    }
+
+    .field-advanced summary::-webkit-details-marker { display: none; }
+
+    .field-advanced summary::before {
+        content: "\25B8";
+        display: inline-block;
+        margin-right: 7px;
+        transition: transform 0.15s;
+    }
+
+    .field-advanced[open] summary::before { transform: rotate(90deg); }
+    .field-advanced summary:hover { color: var(--accent); }
+    .field-advanced .field { margin: 14px 0 0; }
 
     .field-hint { font-size: 11.5px; color: var(--ink-faint); margin-top: 5px; line-height: 1.5; }
 
@@ -679,7 +859,7 @@
     <section class="panel chat" aria-label="Chat">
         <header class="chat-head">
             <div>
-                <h1 class="chat-title" id="chatTitle">OpenClaw Studio</h1>
+                <h1 class="chat-title" id="chatTitle">LiveContent Studio</h1>
                 <p class="chat-sub" id="chatSub">No sources selected</p>
             </div>
             <div style="display:flex;gap:2px">
@@ -699,7 +879,7 @@
                     Studio Guide
                 </div>
                 <p id="guideText">
-                    Ask anything and the reply streams in live from your OpenClaw gateway.
+                    Ask anything and the reply streams in live from your LiveContent assistant.
                     Sources on the left group your conversations; save any answer to Notes on
                     the right, then turn it into narrated audio with Audio Overview.
                 </p>
@@ -720,7 +900,7 @@
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
                 </button>
             </div>
-            <p class="disclaimer">OpenClaw can make mistakes. Check important information.</p>
+            <p class="disclaimer">LiveContent can make mistakes. Check important information.</p>
         </div>
     </section>
 
@@ -780,37 +960,91 @@
     </section>
 </div>
 
+<!-- ============ ADD SOURCE ============ -->
+<dialog id="dlgSource">
+    <button class="dlg-x" id="btnSourceClose" title="Close" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+
+    <div class="src-head">
+        <h2>Add a source</h2>
+        <p>Start a conversation from a document, a topic, or pasted text.</p>
+    </div>
+
+    <div class="src-body">
+        <div class="src-search">
+            <input id="srcQuery" type="text" placeholder="Ask the agent to research a topic..."
+                   autocomplete="off" aria-label="Research a topic">
+            <button class="src-go" id="btnSrcSearch" title="Research" aria-label="Research">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            </button>
+        </div>
+        <p class="src-hint">
+            The agent researches this using whatever tools it has configured, then
+            the reply becomes your first message.
+        </p>
+
+        <div class="src-drop" id="srcDrop">
+            <div class="src-drop-title">or drop your files</div>
+            <div class="src-drop-sub">PDF, Word .docx, or plain text &mdash; read in your browser, never uploaded</div>
+            <div class="src-actions">
+                <button class="src-btn" id="btnSrcUpload">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+                    Upload files
+                </button>
+                <button class="src-btn" id="btnSrcPaste">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 2h-4.18C14.4.84 13.3 0 12 0S9.6.84 9.18 2H5a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm-7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm7 18H5V4h2v3h10V4h2v16z"/></svg>
+                    Copied text
+                </button>
+                <button class="src-btn" id="btnSrcBlank">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                    Blank conversation
+                </button>
+            </div>
+            <input type="file" id="srcFile" multiple hidden
+                   accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
+        </div>
+
+        <div class="src-status" id="srcStatus"></div>
+    </div>
+</dialog>
+
 <!-- ============ SETTINGS ============ -->
 <dialog id="dlgSettings">
     <form method="dialog">
         <div class="dlg-head">
             <h2>Connection</h2>
-            <p>Point this page at your OpenClaw gateway. Settings stay in this browser only.</p>
+            <p>Connect this page to your LiveContent server. Settings stay in this browser only.</p>
         </div>
         <div class="dlg-body">
             <div class="status-line" id="dlgStatus"></div>
             <div class="field">
-                <label for="inpBase">Gateway base URL</label>
+                <label for="inpBase">Server address</label>
                 <input id="inpBase" type="text" placeholder="/openclaw-api" autocomplete="off" spellcheck="false">
                 <div class="field-hint">
-                    The path or origin serving <code>/v1/chat/completions</code>.
-                    Use a relative path when Caddy proxies the gateway on this domain.
+                    The address of your LiveContent server.
+                    Use a relative path when the server is proxied on this domain.
                 </div>
             </div>
             <div class="field">
-                <label for="inpToken">Gateway token</label>
+                <label for="inpToken">Access token</label>
                 <input id="inpToken" type="password" placeholder="Bearer token" autocomplete="current-password">
-                <div class="field-hint">Stored in this browser's local storage, never sent anywhere else.</div>
+                <div class="field-hint">Stored in this browser only, never sent anywhere else.</div>
             </div>
+            <details class="field-advanced">
+                <summary>Advanced</summary>
+                <div class="field">
+                    <label for="inpModel">Assistant ID</label>
+                    <input id="inpModel" type="text" autocomplete="off" spellcheck="false">
+                    <div class="field-hint">
+                        Leave as-is unless you have been given a different assistant to use.
+                    </div>
+                </div>
+            </details>
             <div class="field">
-                <label for="inpModel">Agent target</label>
-                <input id="inpModel" type="text" placeholder="openclaw/default" autocomplete="off" spellcheck="false">
-                <div class="field-hint">Usually <code>openclaw/default</code>.</div>
-            </div>
-            <div class="field">
-                <label for="inpKokoro">Kokoro TTS endpoint (optional)</label>
+                <label for="inpKokoro">Narration service (optional)</label>
                 <input id="inpKokoro" type="text" placeholder="/kokoro/api/tts" autocomplete="off" spellcheck="false">
-                <div class="field-hint">Used by Audio Overview. Leave blank to disable narration.</div>
+                <div class="field-hint">Powers Audio Overview. Leave blank to disable narration.</div>
             </div>
         </div>
         <div class="dlg-foot">
@@ -958,7 +1192,7 @@
 
     function renderChat() {
         const c = activeConvo();
-        el.chatTitle.textContent = c ? c.title : 'OpenClaw Studio';
+        el.chatTitle.textContent = c ? c.title : 'LiveContent Studio';
         const n = c ? c.messages.length : 0;
         el.chatSub.textContent = c
             ? n + ' message' + (n === 1 ? '' : 's') + ' in this conversation'
@@ -1005,7 +1239,7 @@
 
     async function send(text) {
         if (streaming) return;
-        if (!state.token) { openSettings('Add your gateway token to start chatting.'); return; }
+        if (!state.token) { openSettings('Add your access token to start chatting.'); return; }
 
         let c = activeConvo() || newConvo();
         if (c.messages.length === 0) {
@@ -1061,7 +1295,7 @@
 
             if (!res.ok) {
                 const detail = (await res.text()).slice(0, 300);
-                throw new Error('Gateway returned ' + res.status + '. ' + detail);
+                throw new Error('Server returned ' + res.status + '. ' + detail);
             }
             if (!res.body) throw new Error('This browser cannot read streaming responses.');
 
@@ -1096,7 +1330,7 @@
                 }
             }
 
-            if (!acc) throw new Error('The gateway returned an empty reply.');
+            if (!acc) throw new Error('The assistant returned an empty reply.');
 
             bubble.classList.remove('caret');
             c.messages.push({ role: 'assistant', content: acc });
@@ -1116,8 +1350,8 @@
                 wrap.className = 'msg error';
                 // "Failed to fetch" tells the user nothing actionable.
                 bubble.textContent = /failed to fetch|networkerror|load failed/i.test(err.message)
-                    ? 'Could not reach the gateway at ' + apiUrl('/v1/chat/completions') +
-                      '. Check the base URL in settings, and that /v1/chat/completions is enabled.'
+                    ? 'Could not reach the LiveContent server. Check the server address and '
+                      + 'token in settings.'
                     : err.message;
             }
         } finally {
@@ -1131,12 +1365,12 @@
         }
     }
 
-    // ---------- Audio Overview (Kokoro) ----------
+    // ---------- Audio Overview (narration service) ----------
     async function narrateLatest() {
         const c = activeConvo();
         const last = c && c.messages.slice().reverse().find(m => m.role === 'assistant');
         if (!last) { flashAudio('Ask something first, then narrate the answer.'); return; }
-        if (!state.kokoro) { openSettings('Set the Kokoro endpoint to enable Audio Overview.'); return; }
+        if (!state.kokoro) { openSettings('Set the narration service to enable Audio Overview.'); return; }
 
         el.audioBtn.disabled = true;
         el.audioOut.innerHTML = '<div class="tool-desc">Generating narration...</div>';
@@ -1151,7 +1385,7 @@
                     voice: 'af_sarah', language: 'en-us', speed: 1.0,
                 }),
             });
-            if (!res.ok) throw new Error('Kokoro returned ' + res.status);
+            if (!res.ok) throw new Error('Narration service returned ' + res.status);
             const url = URL.createObjectURL(await res.blob());
             el.audioOut.innerHTML = '<audio controls src="' + url + '"></audio>';
         } catch (err) {
@@ -1165,6 +1399,363 @@
         el.audioOut.innerHTML = '<div class="tool-desc" style="color:#c5221f">' +
             escapeHtml(message) + '</div>';
     }
+
+    // Inflate a raw DEFLATE stream. .docx is a ZIP container and PDF text
+    // streams are usually FlateDecode, so both paths need this.
+    // Uses DecompressionStream where available, which is every current browser.
+    async function inflate(bytes, format) {
+        if (typeof DecompressionStream === 'undefined') {
+            throw new Error('This browser cannot decompress the file. Try a recent Chrome, Edge, Firefox or Safari.');
+        }
+        const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream(format));
+        return new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+
+    // Read the entries of a ZIP archive (used for .docx).
+    function readZipEntries(bytes) {
+        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        // Locate the End Of Central Directory record, scanning back from the tail.
+        let eocd = -1;
+        for (let i = bytes.length - 22; i >= 0 && i >= bytes.length - 65557; i--) {
+            if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+        }
+        if (eocd < 0) throw new Error('Not a valid .docx file (no ZIP directory found).');
+
+        const count = view.getUint16(eocd + 10, true);
+        let offset = view.getUint32(eocd + 16, true);
+        const entries = {};
+
+        for (let i = 0; i < count; i++) {
+            if (view.getUint32(offset, true) !== 0x02014b50) break;
+            const method = view.getUint16(offset + 10, true);
+            const compressedSize = view.getUint32(offset + 20, true);
+            const nameLength = view.getUint16(offset + 28, true);
+            const extraLength = view.getUint16(offset + 30, true);
+            const commentLength = view.getUint16(offset + 32, true);
+            const localOffset = view.getUint32(offset + 42, true);
+            const name = new TextDecoder().decode(bytes.subarray(offset + 46, offset + 46 + nameLength));
+
+            entries[name] = { method, compressedSize, localOffset };
+            offset += 46 + nameLength + extraLength + commentLength;
+        }
+        return { entries, view, bytes };
+    }
+
+    async function readZipFile(zip, name) {
+        const entry = zip.entries[name];
+        if (!entry) return null;
+        // Skip the local file header to reach the data.
+        const h = entry.localOffset;
+        const nameLength = zip.view.getUint16(h + 26, true);
+        const extraLength = zip.view.getUint16(h + 28, true);
+        const start = h + 30 + nameLength + extraLength;
+        const data = zip.bytes.subarray(start, start + entry.compressedSize);
+        if (entry.method === 0) return data;            // stored
+        if (entry.method === 8) return inflate(data, 'deflate-raw');
+        throw new Error('Unsupported compression in .docx file.');
+    }
+
+    // Extract text from a Word .docx, preserving paragraph and line breaks.
+    async function extractDocxText(arrayBuffer) {
+        const zip = readZipEntries(new Uint8Array(arrayBuffer));
+        const documentXml = await readZipFile(zip, 'word/document.xml');
+        if (!documentXml) throw new Error('No document body found. Old .doc files are not supported - save as .docx.');
+
+        const xml = new TextDecoder('utf-8').decode(documentXml);
+        const doc = new DOMParser().parseFromString(xml, 'application/xml');
+        if (doc.querySelector('parsererror')) throw new Error('The .docx file appears to be corrupt.');
+
+        const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+        const paragraphs = [];
+
+        Array.from(doc.getElementsByTagNameNS(W, 'p')).forEach(p => {
+            let line = '';
+            // Walk the paragraph in document order so tabs and breaks land correctly.
+            const walker = document.createTreeWalker(p, NodeFilter.SHOW_ELEMENT);
+            let node = walker.currentNode;
+            while (node) {
+                if (node.namespaceURI === W) {
+                    if (node.localName === 't') line += node.textContent;
+                    else if (node.localName === 'tab') line += '\t';
+                    else if (node.localName === 'br' || node.localName === 'cr') line += '\n';
+                }
+                node = walker.nextNode();
+            }
+            paragraphs.push(line);
+        });
+
+        // Blank line between paragraphs preserves the document's visual spacing.
+        return paragraphs.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    }
+
+    // ---- PDF ------------------------------------------------------------
+
+    // Decode a PDF literal string: (Hello \(world\)) with escapes.
+    function decodePdfLiteral(raw) {
+        let out = '';
+        for (let i = 0; i < raw.length; i++) {
+            const c = raw[i];
+            if (c !== '\\') { out += c; continue; }
+            const next = raw[++i];
+            if (next === undefined) break;
+            if (next === 'n') out += '\n';
+            else if (next === 'r') out += '\r';
+            else if (next === 't') out += '\t';
+            else if (next === 'b' || next === 'f') out += ' ';
+            else if (next >= '0' && next <= '7') {
+                let oct = next;
+                while (oct.length < 3 && raw[i + 1] >= '0' && raw[i + 1] <= '7') oct += raw[++i];
+                out += String.fromCharCode(parseInt(oct, 8));
+            } else if (next === '\n') { /* line continuation */ }
+            else out += next;
+        }
+        return out;
+    }
+
+    function decodePdfHexString(hex) {
+        const clean = hex.replace(/[^0-9A-Fa-f]/g, '');
+        let out = '';
+        // Heuristic: 4-hex-digit groups are usually UTF-16BE text.
+        const utf16 = clean.length >= 4 && clean.length % 4 === 0 && /^(00|d[89ab])/i.test(clean);
+        const step = utf16 ? 4 : 2;
+        for (let i = 0; i + step <= clean.length; i += step) {
+            const code = parseInt(clean.substr(i, step), 16);
+            if (code > 0) out += String.fromCharCode(code);
+        }
+        return out;
+    }
+
+    // Turn one content stream into text, using layout operators as break hints.
+    function pdfContentToText(content) {
+        let text = '';
+        // Match strings, kerning numbers inside TJ arrays, and layout operators.
+        const token = /\((?:\\.|[^\\()])*\)|<[0-9A-Fa-f\s]*>|-?\d+(?:\.\d+)?|\bT[Jj]\b|\bT[dD]\b|\bT\*\b|\bET\b|\[|\]/g;
+        let match;
+        let pendingBreak = false;
+        let inArray = false;
+
+        const flushBreak = () => {
+            if (pendingBreak) {
+                if (text && !text.endsWith('\n')) text += '\n';
+                pendingBreak = false;
+            }
+        };
+
+        while ((match = token.exec(content)) !== null) {
+            const t = match[0];
+            if (t === '[') {
+                inArray = true;
+            } else if (t === ']') {
+                inArray = false;
+            } else if (t.startsWith('(')) {
+                flushBreak();
+                text += decodePdfLiteral(t.slice(1, -1));
+            } else if (t.startsWith('<')) {
+                flushBreak();
+                text += decodePdfHexString(t.slice(1, -1));
+            } else if (t === 'Td' || t === 'TD' || t === 'T*' || t === 'ET') {
+                // A text-positioning operator starts a new visual line.
+                pendingBreak = true;
+            } else if (inArray) {
+                // Inside a TJ array a large negative kern is inter-word space.
+                const kern = parseFloat(t);
+                if (kern <= -100 && text && !/\s$/.test(text)) text += ' ';
+            }
+        }
+        return text;
+    }
+
+    // Extract text from a PDF by inflating its FlateDecode content streams.
+    async function extractPdfText(arrayBuffer) {
+        const bytes = new Uint8Array(arrayBuffer);
+        // latin1 keeps byte values intact while letting us regex the structure.
+        const raw = new TextDecoder('latin1').decode(bytes);
+
+        if (!raw.startsWith('%PDF')) throw new Error('Not a valid PDF file.');
+        if (/\/Encrypt\b/.test(raw)) throw new Error('This PDF is password protected or encrypted.');
+
+        const pieces = [];
+        // Walk every stream object and inflate the ones that are Flate-compressed.
+        // The lookbehind avoids matching the trailing "stream" of "endstream".
+        const streamRe = /(?:^|[^d])stream\r?\n/g;
+        let m;
+        while ((m = streamRe.exec(raw)) !== null) {
+            const start = m.index + m[0].length;
+            const end = raw.indexOf('endstream', start);
+            if (end < 0) continue;
+            streamRe.lastIndex = end;
+
+            // Inspect the dictionary just before this stream.
+            const dict = raw.slice(Math.max(0, m.index - 800), m.index);
+            if (!/\/FlateDecode/.test(dict)) continue;
+            // Skip image and font payloads; we only want page content.
+            if (/\/Subtype\s*\/Image|\/FontFile|\/XObject\s*\/Image/.test(dict)) continue;
+
+            // Prefer the declared /Length; otherwise trim the EOL that pads
+            // the gap before "endstream", which would otherwise be junk bytes.
+            let stop = end;
+            const lengthMatch = /\/Length\s+(\d+)/.exec(dict);
+            if (lengthMatch) {
+                const declared = start + parseInt(lengthMatch[1], 10);
+                if (declared <= end) stop = declared;
+            } else {
+                while (stop > start && (raw.charCodeAt(stop - 1) === 10 || raw.charCodeAt(stop - 1) === 13)) stop--;
+            }
+
+            try {
+                const slice = bytes.subarray(start, stop);
+                const inflated = await inflate(slice, 'deflate');
+                const content = new TextDecoder('latin1').decode(inflated);
+                // Only content streams carry text-showing operators.
+                if (/\bTJ\b|\bTj\b/.test(content)) pieces.push(pdfContentToText(content));
+            } catch (e) {
+                // A stream we cannot inflate is skipped rather than failing the import.
+            }
+        }
+
+        if (!pieces.length) {
+            throw new Error('No extractable text found. This PDF may be a scanned image, which needs OCR.');
+        }
+
+        return pieces.join('\n\n')
+            .replace(/[ \t]+\n/g, '\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+    }
+
+    // ---------- Add source ----------
+    const srcStatus = $('srcStatus');
+
+    function setSrcStatus(text, kind) {
+        srcStatus.textContent = text;
+        srcStatus.className = 'src-status' + (kind ? ' ' + kind : '');
+    }
+
+    function openSourceDialog() {
+        $('srcQuery').value = '';
+        setSrcStatus('');
+        $('dlgSource').showModal();
+        setTimeout(() => $('srcQuery').focus(), 50);
+    }
+
+    // Turn a dropped/selected file into a conversation seeded with its text.
+    async function addFileSource(file) {
+        const name = file.name.toLowerCase();
+        setSrcStatus(`Reading ${file.name}...`);
+        let text;
+        if (name.endsWith('.txt') || name.endsWith('.md')) {
+            text = (await file.text()).trim();
+        } else if (name.endsWith('.docx')) {
+            text = await extractDocxText(await file.arrayBuffer());
+        } else if (name.endsWith('.pdf')) {
+            text = await extractPdfText(await file.arrayBuffer());
+        } else if (name.endsWith('.doc')) {
+            throw new Error('Legacy .doc is not supported. Save as .docx.');
+        } else {
+            throw new Error(`Unsupported file type: ${file.name}`);
+        }
+        if (!text) throw new Error(`No text could be read from ${file.name}.`);
+        return { name: file.name, text };
+    }
+
+    async function handleFiles(files) {
+        const list = Array.from(files);
+        if (!list.length) return;
+        try {
+            const docs = [];
+            for (const file of list) docs.push(await addFileSource(file));
+
+            const c = newConvo(docs.length === 1 ? docs[0].name
+                                                 : `${docs.length} documents`);
+            // Seed the conversation with the document text so the agent has it
+            // as context; the user's next question is answered against it.
+            const body = docs.map(d => `--- ${d.name} ---\n${d.text}`).join('\n\n');
+            c.messages.push({
+                role: 'user',
+                content: `Here is the content of ${docs.length === 1 ? 'a document' : 'some documents'} `
+                       + `to use as context for my questions.\n\n${body}`,
+            });
+            writeJSON(CONVOS, convos);
+            renderSources();
+            renderChat();
+
+            const chars = docs.reduce((n, d) => n + d.text.length, 0);
+            setSrcStatus(`Added ${docs.length} source${docs.length === 1 ? '' : 's'} `
+                       + `(${chars.toLocaleString()} characters). Ask a question about it.`, 'ok');
+            setTimeout(() => { $('dlgSource').close(); el.input.focus(); }, 900);
+        } catch (err) {
+            setSrcStatus(err.message, 'error');
+        }
+    }
+
+    // Research a topic: the agent does the lookup with its own tools.
+    function researchTopic(topic) {
+        const c = newConvo(topic.length > 42 ? topic.slice(0, 42).trim() + '...' : topic);
+        writeJSON(CONVOS, convos);
+        renderSources();
+        renderChat();
+        $('dlgSource').close();
+        send(`Research this topic and summarise what you find: ${topic}`);
+    }
+
+    $('btnAddSource').addEventListener('click', openSourceDialog);
+    $('btnSourceClose').addEventListener('click', () => $('dlgSource').close());
+
+    $('btnSrcSearch').addEventListener('click', () => {
+        const topic = $('srcQuery').value.trim();
+        if (!topic) { setSrcStatus('Enter a topic first.', 'error'); return; }
+        researchTopic(topic);
+    });
+
+    $('srcQuery').addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); $('btnSrcSearch').click(); }
+    });
+
+    $('btnSrcUpload').addEventListener('click', () => $('srcFile').click());
+    $('srcFile').addEventListener('change', e => {
+        handleFiles(e.target.files);
+        e.target.value = '';
+    });
+
+    $('btnSrcPaste').addEventListener('click', () => {
+        const text = prompt('Paste the text to use as a source:');
+        if (!text || !text.trim()) return;
+        const c = newConvo('Pasted text');
+        c.messages.push({
+            role: 'user',
+            content: `Here is some text to use as context for my questions.\n\n${text.trim()}`,
+        });
+        writeJSON(CONVOS, convos);
+        renderSources();
+        renderChat();
+        $('dlgSource').close();
+        el.input.focus();
+    });
+
+    $('btnSrcBlank').addEventListener('click', () => {
+        newConvo();
+        renderSources();
+        renderChat();
+        $('dlgSource').close();
+        el.input.focus();
+    });
+
+    // Drag and drop onto the drop zone.
+    const drop = $('srcDrop');
+    ['dragenter', 'dragover'].forEach(evt =>
+        drop.addEventListener(evt, e => {
+            e.preventDefault();
+            drop.classList.add('over');
+        }));
+    ['dragleave', 'drop'].forEach(evt =>
+        drop.addEventListener(evt, e => {
+            e.preventDefault();
+            if (evt === 'dragleave' && drop.contains(e.relatedTarget)) return;
+            drop.classList.remove('over');
+        }));
+    drop.addEventListener('drop', e => {
+        if (e.dataTransfer && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+    });
 
     // ---------- Settings dialog ----------
     function openSettings(message) {
@@ -1216,13 +1807,6 @@
         } catch (err) {
             setDlgStatus('Could not connect: ' + err.message, 'bad');
         }
-    });
-
-    $('btnAddSource').addEventListener('click', () => {
-        newConvo();
-        renderSources();
-        renderChat();
-        el.input.focus();
     });
 
     $('btnNewChat').addEventListener('click', () => {
@@ -1330,7 +1914,7 @@
     renderSources();
     renderChat();
     renderNotes();
-    if (!state.token) openSettings('Welcome. Add your gateway details to begin.');
+    if (!state.token) openSettings('Welcome. Add your connection details to begin.');
 })();
 </script>
 </body>
