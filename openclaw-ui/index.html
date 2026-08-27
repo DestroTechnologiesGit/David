@@ -408,6 +408,8 @@
 
     .send:hover:not(:disabled) { background: #1765cc; }
     .send:disabled { background: #dadce0; cursor: default; }
+    .send.is-stop { background: #c5221f; }
+    .send.is-stop:hover { background: #a50e0e; }
     .send svg { width: 19px; height: 19px; }
 
     .disclaimer {
@@ -1017,13 +1019,22 @@
         renderChat();
 
         streaming = true;
-        el.send.disabled = true;
+        // Keep the button live as a Stop control: agent replies can take a
+        // while, and a stuck request should be cancellable, not just frozen.
+        el.send.classList.add('is-stop');
+        el.send.title = 'Stop';
+        el.send.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
 
         // Placeholder bubble that fills in as tokens arrive.
         const wrap = document.createElement('div');
         wrap.className = 'msg assistant';
         const bubble = document.createElement('div');
         bubble.className = 'bubble caret';
+        // Until the first token lands there is nothing to show; say so after a
+        // few seconds rather than leaving an empty bubble.
+        const waitHint = setTimeout(() => {
+            if (!acc) bubble.textContent = 'Waiting for the agent...';
+        }, 4000);
         wrap.appendChild(bubble);
         el.messages.appendChild(wrap);
         scrollDown();
@@ -1076,6 +1087,7 @@
                         try { json = JSON.parse(payload); } catch (e) { continue; }
                         const delta = json.choices && json.choices[0] && json.choices[0].delta;
                         if (delta && typeof delta.content === 'string') {
+                            if (!acc) { clearTimeout(waitHint); bubble.textContent = ''; }
                             acc += delta.content;
                             bubble.innerHTML = renderMarkdown(acc);
                             scrollDown();
@@ -1109,9 +1121,12 @@
                     : err.message;
             }
         } finally {
+            clearTimeout(waitHint);
             streaming = false;
             abort = null;
-            el.send.disabled = false;
+            el.send.classList.remove('is-stop');
+            el.send.title = 'Send';
+            el.send.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
             el.input.focus();
         }
     }
@@ -1247,6 +1262,10 @@
     });
 
     el.send.addEventListener('click', () => {
+        if (streaming) {
+            if (abort) abort.abort();
+            return;
+        }
         const text = el.input.value.trim();
         if (!text) return;
         el.input.value = '';

@@ -16,6 +16,44 @@ published package and no build script, so it cannot be edited in place — any c
 is overwritten on `npm update`. This app talks to the gateway's documented
 OpenAI-compatible HTTP API instead, so gateway upgrades cannot break it.
 
+## Testing locally
+
+The page cannot be opened straight from disk. Two things prevent it:
+
+- `/openclaw-api` is a **Caddy route**, so it only exists where Caddy runs.
+- The gateway sends **no CORS headers**, so a browser refuses to call it from
+  any other origin (`file://`, a different port, etc.).
+
+`serve.py` solves both: it serves the page and proxies `/openclaw-api/*` to the
+gateway from the same origin, exactly as Caddy does in production.
+
+```bash
+# 1. Make sure the chat endpoint is enabled (see step 1 below) and the
+#    gateway is running:
+openclaw gateway
+
+# 2. In another terminal:
+cd openclaw-ui
+python3 serve.py                    # http://127.0.0.1:8080
+```
+
+Then open <http://127.0.0.1:8080/> and fill in the settings dialog:
+
+| Field | Value |
+| --- | --- |
+| Gateway base URL | `/openclaw-api` |
+| Gateway token | your `gateway.auth.token` |
+| Agent target | `openclaw/default` |
+
+Select **Test connection** first; it should list the available agent targets.
+
+Options: `--port 9000`, `--gateway http://otherhost:18789`, `--timeout 900`.
+No dependencies beyond the Python standard library.
+
+> Agent replies can take **minutes**. The send button turns into a red Stop
+> button while one is in flight, so a slow reply is cancellable rather than
+> looking frozen.
+
 ## Deploying
 
 ### 1. Enable the chat endpoint
