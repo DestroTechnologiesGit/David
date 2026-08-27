@@ -991,6 +991,58 @@
             return await response.blob();
         }
 
+        // Read a WAV header by walking its RIFF chunks. Returns null when more
+        // bytes are needed. `dataStart` is the offset of the audio itself.
+        function parseWavHeader(bytes) {
+            if (bytes.length < 12) return null;
+            const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+            const tag = (off) => String.fromCharCode(
+                dv.getUint8(off), dv.getUint8(off + 1), dv.getUint8(off + 2), dv.getUint8(off + 3));
+
+            if (tag(0) !== 'RIFF' || tag(8) !== 'WAVE') {
+                throw new Error('The server did not return a WAV stream.');
+            }
+
+            let fmt = null;
+            let offset = 12;
+            while (offset + 8 <= bytes.length) {
+                const id = tag(offset);
+                const size = dv.getUint32(offset + 4, true);
+                const body = offset + 8;
+
+                if (id === 'fmt ') {
+                    if (body + 16 > bytes.length) return null;
+                    const formatTag = dv.getUint16(body, true);
+                    fmt = {
+                        channels: dv.getUint16(body + 2, true),
+                        sampleRate: dv.getUint32(body + 4, true),
+                        bits: dv.getUint16(body + 14, true),
+                        // 1 = PCM, 3 = IEEE float, 0xFFFE = extensible (subformat
+                        // in the extension block decides which).
+                        float: formatTag === 3,
+                    };
+                    if (formatTag === 0xFFFE && body + 26 <= bytes.length) {
+                        fmt.float = dv.getUint16(body + 24, true) === 3;
+                    }
+                } else if (id === 'data') {
+                    if (!fmt) throw new Error('The WAV stream has no format header.');
+                    if (!fmt.channels || !fmt.sampleRate || !fmt.bits) {
+                        throw new Error('The WAV stream has an invalid format header.');
+                    }
+                    if (![8, 16, 24, 32, 64].includes(fmt.bits)) {
+                        throw new Error(`Unsupported audio format from server (${fmt.bits}-bit).`);
+                    }
+                    return { header: fmt, dataStart: body };
+                }
+
+                // Chunks are word-aligned, so an odd size carries a pad byte.
+                offset = body + size + (size & 1);
+                // A streaming `data` size can be a placeholder; guard the walk.
+                if (size < 0 || offset < body) throw new Error('Malformed WAV stream.');
+            }
+            return null;   // header not complete yet
+        }
+
         // Stream speech and play it while the server is still generating.
         // The response is one long WAV whose header declares a placeholder
         // length, so MediaSource is fed the bytes as they arrive.
@@ -1013,7 +1065,7 @@
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
             const reader = response.body.getReader();
 
-            let header = null;          // parsed once from the first 44 bytes
+            let header = null;          // parsed from the RIFF chunks up front
             let leftover = new Uint8Array(0);
             let playHead = audioContext.currentTime;
             let started = false;
@@ -1028,15 +1080,34 @@
 
             // Queue one block of PCM for playback directly after whatever is queued.
             const schedule = (pcm) => {
-                const samples = pcm.length / 2 / header.channels;
+                const bytesPerSample = header.bits / 8;
+                const samples = pcm.length / bytesPerSample / header.channels;
                 if (samples < 1) return;
                 const buffer = audioContext.createBuffer(header.channels, samples, header.sampleRate);
                 const view = new DataView(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+                const stride = header.channels * bytesPerSample;
                 for (let ch = 0; ch < header.channels; ch++) {
                     const target = buffer.getChannelData(ch);
+                    const chOffset = ch * bytesPerSample;
                     for (let i = 0; i < samples; i++) {
-                        // 16-bit signed PCM, interleaved by channel.
-                        target[i] = view.getInt16((i * header.channels + ch) * 2, true) / 32768;
+                        const at = i * stride + chOffset;
+                        // Kokoro writes 32-bit float; other tools write 16-bit PCM.
+                        if (header.float) {
+                            target[i] = header.bits === 64
+                                ? view.getFloat64(at, true)
+                                : view.getFloat32(at, true);
+                        } else if (header.bits === 16) {
+                            target[i] = view.getInt16(at, true) / 32768;
+                        } else if (header.bits === 32) {
+                            target[i] = view.getInt32(at, true) / 2147483648;
+                        } else if (header.bits === 24) {
+                            const b0 = view.getUint8(at), b1 = view.getUint8(at + 1);
+                            const b2 = view.getInt8(at + 2);
+                            target[i] = ((b2 << 16) | (b1 << 8) | b0) / 8388608;
+                        } else if (header.bits === 8) {
+                            // 8-bit WAV is unsigned, centred on 128.
+                            target[i] = (view.getUint8(at) - 128) / 128;
+                        }
                     }
                 }
                 const source = audioContext.createBufferSource();
@@ -1059,19 +1130,17 @@
                 leftover = concat(leftover, value);
 
                 if (!header) {
-                    if (leftover.length < 44) continue;
-                    const dv = new DataView(leftover.buffer, leftover.byteOffset, 44);
-                    header = {
-                        channels: dv.getUint16(22, true),
-                        sampleRate: dv.getUint32(24, true),
-                        bits: dv.getUint16(34, true),
-                    };
-                    if (header.bits !== 16) throw new Error('Unsupported audio format from server.');
-                    leftover = leftover.subarray(44);
+                    // Walk the RIFF chunks rather than assuming a 44-byte header:
+                    // float WAVs carry a `fact` chunk, and encoders may add
+                    // `LIST`, so `data` is not always at a fixed offset.
+                    const parsed = parseWavHeader(leftover);
+                    if (!parsed) continue;      // need more bytes
+                    header = parsed.header;
+                    leftover = leftover.subarray(parsed.dataStart);
                 }
 
                 // Only whole frames can be turned into samples.
-                const frameBytes = 2 * header.channels;
+                const frameBytes = (header.bits / 8) * header.channels;
                 const usable = leftover.length - (leftover.length % frameBytes);
                 if (usable > 0) {
                     schedule(leftover.slice(0, usable));
@@ -1088,11 +1157,16 @@
             const full = new Uint8Array(total);
             let at = 0;
             chunks.forEach(c => { full.set(c, at); at += c.length; });
-            // Rewrite the placeholder sizes with the real byte counts.
-            const dataBytes = full.length - 44;
-            const view = new DataView(full.buffer, full.byteOffset, 44);
-            view.setUint32(4, 36 + dataBytes, true);
-            view.setUint32(40, dataBytes, true);
+            // Rewrite the placeholder sizes with the real byte counts. The data
+            // chunk is not always at offset 36, so use the parsed position.
+            const parsed = parseWavHeader(full);
+            if (parsed) {
+                const dataStart = parsed.dataStart;
+                const dataBytes = full.length - dataStart;
+                const view = new DataView(full.buffer, full.byteOffset, full.byteLength);
+                view.setUint32(4, full.length - 8, true);
+                view.setUint32(dataStart - 4, dataBytes, true);
+            }
 
             return {
                 blob: new Blob([full], { type: 'audio/wav' }),

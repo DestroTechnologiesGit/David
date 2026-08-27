@@ -56,6 +56,10 @@ def parse_wav(data: bytes) -> tuple[dict, bytes]:
         body = data[offset + 8:offset + 8 + size]
         if chunk_id == b"fmt ":
             audio_format, channels, rate, _, _, bits = struct.unpack_from("<HHIIHH", body, 0)
+            # WAVE_FORMAT_EXTENSIBLE hides the real tag in the extension block;
+            # unwrap it so downstream players see plain PCM or IEEE float.
+            if audio_format == 0xFFFE and len(body) >= 26:
+                (audio_format,) = struct.unpack_from("<H", body, 24)
             fmt = {
                 "audio_format": audio_format,
                 "channels": channels,
@@ -73,16 +77,23 @@ def parse_wav(data: bytes) -> tuple[dict, bytes]:
 
 
 def wav_header(fmt: dict, data_size: int) -> bytes:
-    """Build a 44-byte WAV header. Streaming uses a placeholder data size."""
+    """Build a 44-byte WAV header. Streaming uses a placeholder data size.
+
+    The format tag must match the samples being forwarded: Kokoro writes
+    32-bit IEEE float (tag 3), not 16-bit PCM (tag 1). Declaring the wrong
+    tag makes players decode noise or reject the stream outright.
+    """
     channels = fmt["channels"]
     rate = fmt["sample_rate"]
     bits = fmt["bits_per_sample"]
+    audio_format = fmt.get("audio_format", 1)
     block_align = channels * bits // 8
     return (
         b"RIFF"
         + struct.pack("<I", 36 + data_size)
         + b"WAVEfmt "
-        + struct.pack("<IHHIIHH", 16, 1, channels, rate, rate * block_align, block_align, bits)
+        + struct.pack("<IHHIIHH", 16, audio_format, channels, rate,
+                      rate * block_align, block_align, bits)
         + b"data"
         + struct.pack("<I", data_size)
     )
@@ -251,7 +262,8 @@ class Handler(BaseHTTPRequestHandler):
                             headers_sent = True
                         elif (chunk_fmt["sample_rate"] != fmt["sample_rate"]
                               or chunk_fmt["channels"] != fmt["channels"]
-                              or chunk_fmt["bits_per_sample"] != fmt["bits_per_sample"]):
+                              or chunk_fmt["bits_per_sample"] != fmt["bits_per_sample"]
+                              or chunk_fmt["audio_format"] != fmt["audio_format"]):
                             # Format shifts mid-stream would corrupt playback.
                             raise RuntimeError("Audio format changed mid-stream")
 
