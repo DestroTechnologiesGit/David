@@ -159,3 +159,10 @@ browser's local storage only.
   context window. Untick what a question does not need.
 - Sources live in `localStorage` alongside conversations, so the same per-browser
   limits apply.
+- Web sources show their site's favicon, fetched from Google
+  (`google.com/s2/favicons`). This is the only third-party request the page
+  makes, and it tells Google which domains you have saved. Icons are sent
+  `referrerpolicy="no-referrer"`, and a source whose icon fails to load falls
+  back to a coloured letter tile. To keep the page fully self-contained, delete
+  the `<img>` in `faviconTile()` and the one in `renderResults()`; the letter
+  tiles remain.
