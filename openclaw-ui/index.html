@@ -1715,7 +1715,8 @@
             return;
         }
         box.innerHTML = convos.map(c => {
-            const count = c.messages.length;
+            // Hidden prompts are not messages as far as the user is concerned.
+            const count = c.messages.filter(m => !m.quiet).length;
             const nSrc = (c.sources || []).length;
             const when = (count || nSrc) ? new Date(c.at).toLocaleDateString(undefined,
                 { month: 'short', day: 'numeric' }) : 'Empty';
@@ -1739,10 +1740,14 @@
         if (!c) {
             el.chatSub.textContent = 'No conversation selected';
         } else if (c.sources && c.sources.length) {
+            const total = c.sources.length;
             const on = c.sources.filter(s => s.on !== false).length;
-            el.chatSub.textContent = on + ' of ' + c.sources.length + ' source'
-                + (c.sources.length === 1 ? '' : 's') + ' selected \u00B7 '
-                + n + ' message' + (n === 1 ? '' : 's');
+            const when = new Date(c.at).toLocaleDateString(undefined,
+                { month: 'short', day: 'numeric', year: 'numeric' });
+            // Only call out the split when some sources are switched off.
+            el.chatSub.textContent = (on === total
+                ? total + ' source' + (total === 1 ? '' : 's')
+                : on + ' of ' + total + ' sources selected') + ' \u00B7 ' + when;
         } else {
             el.chatSub.textContent = n + ' message' + (n === 1 ? '' : 's') + ' in this conversation';
         }
@@ -1751,7 +1756,9 @@
             el.messages.innerHTML = '';
             return;
         }
-        el.messages.innerHTML = c.messages.map(m =>
+        // `quiet` messages are prompts the app wrote for itself (the import
+        // overview); the agent sees them, the transcript does not.
+        el.messages.innerHTML = c.messages.filter(m => !m.quiet).map(m =>
             '<div class="msg ' + m.role + '"><div class="bubble">' +
             (m.role === 'assistant' ? renderMarkdown(m.content)
                                     : escapeHtml(m.display || m.content)) +
@@ -1810,6 +1817,17 @@
         }].concat(msgs);
     }
 
+    // Pull a leading "TITLE: ..." line off a reply, returning both halves.
+    function stripTitleLine(text) {
+        const m = /^\s*(?:\*\*)?TITLE(?:\*\*)?\s*:\s*(.+?)\s*$/im.exec(text.split('\n')[0] || '');
+        if (!m) return { title: '', body: text };
+        const title = m[1].replace(/^["'*]+|["'*]+$/g, '').trim();
+        return {
+            title: title.length > 80 ? title.slice(0, 80).trim() + '...' : title,
+            body: text.split('\n').slice(1).join('\n').replace(/^\s+/, ''),
+        };
+    }
+
     async function send(text, options) {
         if (streaming) return;
         if (!state.token) { openSettings('Add your access token to start chatting.'); return; }
@@ -1822,9 +1840,10 @@
         }
         // `display` keeps a long machine-written prompt out of the transcript
         // while the agent still receives the full text.
-        c.messages.push(opts.display
-            ? { role: 'user', content: text, display: opts.display }
-            : { role: 'user', content: text });
+        const msg = { role: 'user', content: text };
+        if (opts.display) msg.display = opts.display;
+        if (opts.quiet) msg.quiet = true;
+        c.messages.push(msg);
         c.at = Date.now();
         writeJSON(CONVOS, convos);
         renderSources();
@@ -1902,7 +1921,8 @@
                         if (delta && typeof delta.content === 'string') {
                             if (!acc) { clearTimeout(waitHint); bubble.textContent = ''; }
                             acc += delta.content;
-                            bubble.innerHTML = renderMarkdown(acc);
+                            bubble.innerHTML = renderMarkdown(
+                                opts.titled ? stripTitleLine(acc).body : acc);
                             scrollDown();
                         }
                     }
@@ -1912,11 +1932,19 @@
             if (!acc) throw new Error('The assistant returned an empty reply.');
 
             bubble.classList.remove('caret');
+            // An overview reply carries the notebook's name on its first line.
+            if (opts.titled) {
+                const cut = stripTitleLine(acc);
+                if (cut.title) c.title = cut.title;
+                acc = cut.body;
+                bubble.innerHTML = renderMarkdown(acc);
+            }
             c.messages.push({ role: 'assistant', content: acc });
             c.at = Date.now();
             writeJSON(CONVOS, convos);
             renderSources();
             renderConvos();
+            renderChat();
 
         } catch (err) {
             bubble.classList.remove('caret');
@@ -2574,13 +2602,74 @@
         renderChat();
 
         const skipped = picked.length - added;
-        setSearchStatus(
-            added
-                ? 'Added ' + added + ' source' + (added === 1 ? '' : 's')
-                  + (skipped ? ' (' + skipped + ' already saved)' : '')
-                  + '. Ask a question to use ' + (added === 1 ? 'it' : 'them') + '.'
-                : 'Those sources are already saved.',
-            'ok');
+        if (!added) {
+            setSearchStatus('Those sources are already saved.', 'ok');
+            return;
+        }
+        setSearchStatus('Added ' + added + ' source' + (added === 1 ? '' : 's')
+                      + (skipped ? ' (' + skipped + ' already saved)' : '') + '.', 'ok');
+
+        // Opening a notebook with an overview is what makes the import feel
+        // like it did something. Only on the first import: later ones would
+        // talk over a conversation already in progress.
+        if (c.messages.length) return;
+        // A provisional local title so the header is never blank while the
+        // agent works; its own TITLE: line replaces this as the reply streams.
+        c.title = titleFromSources(c.sources, lastQuery);
+        writeJSON(CONVOS, convos);
+        renderConvos();
+        renderChat();
+        send('Start your reply with a single line "TITLE: <a short descriptive '
+           + 'title for this collection of sources>", then a blank line, then a '
+           + 'short overview of what these sources collectively cover.',
+             { keepTitle: true, quiet: true, titled: true });
+    }
+
+    // Name a notebook after the words its sources share, so the header reads
+    // like a topic rather than the raw search box contents.
+    const STOPWORDS = new Set(('the a an and or of for to in on with how what why '
+        + 'is are was were do does your you my best top guide free new vs versus '
+        + 'from at by it its this that these those uk us 2024 2025 2026 2027 pdf '
+        + 'com www review reviews explained simple').split(' '));
+
+    function titleFromSources(sources, fallback) {
+        // Fold plurals together so "panel" and "panels" are not two themes.
+        const stem = w => w.replace(/(ies)$/, 'y').replace(/(es|s)$/, '');
+        const freq = new Map();
+        const label = new Map();
+
+        sources.forEach(s => {
+            const seen = new Set();
+            String(s.title || '').toLowerCase()
+                .replace(/[^a-z0-9 ]+/g, ' ')
+                .split(/\s+/)
+                .filter(w => w.length > 3 && !STOPWORDS.has(w))
+                .forEach(w => {
+                    const k = stem(w);
+                    if (seen.has(k)) return;   // count each source once per word
+                    seen.add(k);
+                    freq.set(k, (freq.get(k) || 0) + 1);
+                    if (!label.has(k)) label.set(k, w);
+                });
+        });
+
+        const top = [...freq.entries()]
+            .filter(([, n]) => n > 1)          // a shared theme, not one title
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+            .slice(0, 3)
+            .map(([k]) => {
+                const w = label.get(k);
+                return w[0].toUpperCase() + w.slice(1);
+            });
+
+        const f = (fallback || '').trim();
+        if (top.length < 2) {
+            if (!f) return 'New notebook';
+            return f.length > 46 ? f.slice(0, 46).trim() + '...'
+                                 : f[0].toUpperCase() + f.slice(1);
+        }
+        // "Solar, Panel and Efficiency" reads as a topic; a trailing count does not.
+        return top.slice(0, -1).join(', ') + ' and ' + top[top.length - 1];
     }
 
     $('btnPanelSearch').addEventListener('click', () => {

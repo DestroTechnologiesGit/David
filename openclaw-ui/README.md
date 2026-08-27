@@ -5,13 +5,15 @@ HTML file. It is presented as a LiveContent product; the OpenClaw name does
 not appear in the UI. It does **not** replace or modify the built-in
 OpenClaw Control UI, which stays available at its own URL for admin work.
 
-- **Sources** — the research surface, kept separate from the chat. Search the
-  web from the panel, tick the results you want and **Import** them; they are
-  saved to the current notebook's source list rather than starting a
-  conversation. **Add source** adds a document (PDF / `.docx` / `.txt`,
-  drag-and-drop or file picker, parsed in the browser) or pasted text. Each row
-  has a checkbox: only ticked sources are sent as context with the next
-  question, so the answer can be re-grounded without retyping it
+- **Sources** — the research surface. Search the web from the panel, tick the
+  results you want and **Import** them; they are saved to the current
+  notebook's source list. The first import into an empty notebook also names it
+  and opens the chat with an overview of what the sources cover; later imports
+  only add rows, so they never talk over a conversation in progress.
+  **Add source** adds a document (PDF / `.docx` / `.txt`, drag-and-drop or file
+  picker, parsed in the browser) or pasted text. Each row has a checkbox: only
+  ticked sources are sent as context with the next question, so the answer can
+  be re-grounded without retyping it
 - **Notebooks** — conversations, listed under the sources. Each notebook owns
   its own source list; switching notebooks swaps the sources shown
 - **Chat** — streaming replies from the gateway
