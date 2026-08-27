@@ -410,6 +410,9 @@
 
         let finalAudioBlob = null;
 
+        // Seconds of music fade-out at the end of the narration.
+        const MUSIC_FADE_OUT_SECONDS = 2;
+
         // Filter voices based on selected language
         function filterVoicesByLanguage(selectedLang) {
             let firstVisibleOption = null;
@@ -502,13 +505,21 @@
             const musicArrayBuffer = await musicBlob.arrayBuffer();
             const musicAudioBuffer = await audioContext.decodeAudioData(musicArrayBuffer);
 
-            // Determine output length (longer of the two)
-            const outputLength = Math.max(voiceAudioBuffer.length, musicAudioBuffer.length);
+            // Output runs exactly as long as the narration: background music is
+            // trimmed to the voice and stops when the voice stops.
+            const outputLength = voiceAudioBuffer.length;
             const outputBuffer = audioContext.createBuffer(
                 2, // stereo
                 outputLength,
                 audioContext.sampleRate
             );
+
+            // Fade the music out over the final moments so the trim isn't an abrupt cut.
+            const fadeSamples = Math.min(
+                Math.floor(MUSIC_FADE_OUT_SECONDS * voiceAudioBuffer.sampleRate),
+                outputLength
+            );
+            const fadeStart = outputLength - fadeSamples;
 
             // Mix the audio
             for (let channel = 0; channel < 2; channel++) {
@@ -517,8 +528,11 @@
                 const musicData = musicAudioBuffer.getChannelData(Math.min(channel, musicAudioBuffer.numberOfChannels - 1));
 
                 for (let i = 0; i < outputLength; i++) {
-                    let voiceSample = i < voiceData.length ? voiceData[i] * voiceVol : 0;
+                    const voiceSample = voiceData[i] * voiceVol;
                     let musicSample = i < musicData.length ? musicData[i] * musicVol : 0;
+                    if (fadeSamples > 0 && i >= fadeStart) {
+                        musicSample *= (outputLength - i) / fadeSamples;
+                    }
                     outputData[i] = voiceSample + musicSample;
                 }
             }
