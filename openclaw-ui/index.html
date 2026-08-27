@@ -1,0 +1,1303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OpenClaw Studio</title>
+<style>
+    :root {
+        --bg: #f4f6f8;
+        --panel: #ffffff;
+        --ink: #1f1f1f;
+        --ink-soft: #5f6368;
+        --ink-faint: #80868b;
+        --line: #e3e5e8;
+        --accent: #1a73e8;
+        --accent-soft: #e8f0fe;
+        --note: #fef7e0;
+        --note-line: #f9e3a2;
+        --radius: 16px;
+        --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+        height: 100%;
+        margin: 0;
+    }
+
+    body {
+        background: var(--bg);
+        color: var(--ink);
+        font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+              "Helvetica Neue", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* ---- Three-panel shell ---- */
+    .shell {
+        display: grid;
+        grid-template-columns: 300px minmax(0, 1fr) 340px;
+        gap: 12px;
+        padding: 12px;
+        height: 100vh;
+    }
+
+    .panel {
+        background: var(--panel);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 20px 20px 16px;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .panel-title {
+        font-size: 17px;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .panel-sub {
+        font-size: 12px;
+        color: var(--ink-faint);
+        margin: 2px 0 0;
+    }
+
+    .panel-body {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 16px;
+    }
+
+    /* ---- Icon buttons ---- */
+    .icon-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border: none;
+        border-radius: 50%;
+        background: none;
+        color: var(--ink-soft);
+        cursor: pointer;
+        flex: none;
+        transition: background 0.15s;
+    }
+
+    .icon-btn:hover { background: #f1f3f4; }
+    .icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .icon-btn svg { width: 20px; height: 20px; display: block; }
+
+    /* ---- Sources ---- */
+    .add-source {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 16px;
+        border: none;
+        border-radius: 24px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .add-source:hover { background: #1765cc; }
+    .add-source svg { width: 18px; height: 18px; }
+
+    .source {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .source:hover { background: #f8f9fa; }
+    .source.selected { background: var(--accent-soft); }
+
+    .source-check {
+        width: 20px;
+        height: 20px;
+        border: 2px solid #c4c7c5;
+        border-radius: 50%;
+        flex: none;
+        display: grid;
+        place-items: center;
+        transition: background 0.15s, border-color 0.15s;
+    }
+
+    .source.selected .source-check {
+        background: var(--accent);
+        border-color: var(--accent);
+    }
+
+    .source-check svg {
+        width: 12px;
+        height: 12px;
+        color: #fff;
+        opacity: 0;
+    }
+
+    .source.selected .source-check svg { opacity: 1; }
+
+    .source-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        flex: none;
+        display: grid;
+        place-items: center;
+        background: #e8f0fe;
+        color: var(--accent);
+    }
+
+    .source-icon svg { width: 17px; height: 17px; }
+    .source-icon.doc { background: #e6f4ea; color: #137333; }
+    .source-icon.link { background: #fce8e6; color: #c5221f; }
+
+    .source-text { min-width: 0; }
+
+    .source-name {
+        font-size: 13.5px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .source-meta {
+        font-size: 12px;
+        color: var(--ink-faint);
+        margin-top: 1px;
+    }
+
+    .empty {
+        padding: 28px 16px;
+        text-align: center;
+        font-size: 13px;
+        color: var(--ink-faint);
+        line-height: 1.6;
+    }
+
+    /* ---- Chat ---- */
+    .chat-head {
+        padding: 22px 28px 18px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+    }
+
+    .chat-title {
+        font-size: 26px;
+        font-weight: 600;
+        margin: 0;
+        letter-spacing: -0.3px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .chat-head > div:first-child { min-width: 0; }
+
+    .chat-sub {
+        font-size: 13px;
+        color: var(--ink-faint);
+        margin: 4px 0 0;
+    }
+
+    .chat-scroll {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 24px 28px 8px;
+    }
+
+    .guide {
+        background: #f8f9fa;
+        border-radius: 14px;
+        padding: 20px 22px;
+        margin-bottom: 26px;
+    }
+
+    .guide-head {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-weight: 600;
+        color: var(--accent);
+        margin-bottom: 10px;
+    }
+
+    .guide-head svg { width: 19px; height: 19px; }
+    .guide p { margin: 0; color: #3c4043; line-height: 1.65; }
+
+    .msg { margin-bottom: 22px; display: flex; }
+    .msg.user { justify-content: flex-end; }
+
+    .bubble {
+        max-width: 82%;
+        padding: 14px 18px;
+        border-radius: 18px;
+        line-height: 1.65;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
+    .msg.user .bubble {
+        background: #f1f3f4;
+        border-bottom-right-radius: 5px;
+    }
+
+    .msg.assistant .bubble {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-bottom-left-radius: 5px;
+        max-width: 92%;
+    }
+
+    .bubble strong { font-weight: 600; }
+    .bubble em { font-style: italic; }
+    .bubble ul { margin: 10px 0; padding-left: 22px; }
+    .bubble li { margin-bottom: 8px; }
+    .bubble code {
+        background: #f1f3f4;
+        padding: 2px 5px;
+        border-radius: 4px;
+        font-size: 13px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .bubble pre {
+        background: #f8f9fa;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 12px 14px;
+        overflow-x: auto;
+        margin: 10px 0;
+    }
+    .bubble pre code { background: none; padding: 0; }
+    .bubble p:first-child { margin-top: 0; }
+    .bubble p:last-child { margin-bottom: 0; }
+
+    /* blinking caret while a reply streams in */
+    .caret::after {
+        content: "";
+        display: inline-block;
+        width: 7px;
+        height: 15px;
+        margin-left: 2px;
+        background: var(--accent);
+        vertical-align: -2px;
+        animation: blink 1s step-end infinite;
+    }
+
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .msg.error .bubble {
+        background: #fce8e6;
+        border-color: #f5c6c2;
+        color: #c5221f;
+    }
+
+    /* ---- Composer ---- */
+    .composer-wrap {
+        padding: 12px 28px 20px;
+        background: linear-gradient(to top, var(--panel) 72%, transparent);
+    }
+
+    .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .chip {
+        padding: 8px 15px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: #fff;
+        font-size: 13px;
+        font-family: inherit;
+        color: var(--ink-soft);
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s;
+    }
+
+    .chip:hover { background: #f8f9fa; border-color: #d2d5d9; }
+
+    .composer {
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+        border: 1px solid var(--line);
+        border-radius: 26px;
+        padding: 7px 7px 7px 20px;
+        background: #fff;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .composer:focus-within {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    .composer textarea {
+        flex: 1;
+        border: none;
+        outline: none;
+        resize: none;
+        font: inherit;
+        line-height: 1.5;
+        padding: 10px 0;
+        max-height: 160px;
+        background: none;
+        color: inherit;
+    }
+
+    .send {
+        width: 40px;
+        height: 40px;
+        border: none;
+        border-radius: 50%;
+        background: var(--accent);
+        color: #fff;
+        cursor: pointer;
+        flex: none;
+        display: grid;
+        place-items: center;
+        transition: background 0.15s;
+    }
+
+    .send:hover:not(:disabled) { background: #1765cc; }
+    .send:disabled { background: #dadce0; cursor: default; }
+    .send svg { width: 19px; height: 19px; }
+
+    .disclaimer {
+        text-align: center;
+        font-size: 11.5px;
+        color: var(--ink-faint);
+        margin-top: 11px;
+    }
+
+    /* ---- Studio ---- */
+    .tool-card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 16px;
+        margin-bottom: 20px;
+    }
+
+    .tool-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+
+    .tool-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #fce8e6;
+        color: #c5221f;
+        display: grid;
+        place-items: center;
+        flex: none;
+    }
+
+    .tool-icon svg { width: 21px; height: 21px; }
+    .tool-name { font-weight: 600; font-size: 14.5px; }
+    .tool-desc { font-size: 12.5px; color: var(--ink-faint); margin-top: 1px; }
+
+    .tool-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        padding: 10px;
+        border: none;
+        border-radius: 20px;
+        background: #f1f3f4;
+        font-size: 13.5px;
+        font-weight: 600;
+        font-family: inherit;
+        color: var(--ink);
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .tool-btn:hover:not(:disabled) { background: #e8eaed; }
+    .tool-btn:disabled { opacity: 0.55; cursor: default; }
+    .tool-btn svg { width: 15px; height: 15px; }
+
+    .audio-out { margin-top: 12px; }
+    .audio-out audio { width: 100%; }
+
+    .studio-section {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+    }
+
+    .studio-section h3 { font-size: 15px; font-weight: 600; margin: 0; }
+
+    .note {
+        background: var(--note);
+        border: 1px solid var(--note-line);
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-bottom: 12px;
+        position: relative;
+    }
+
+    .note-title { font-weight: 600; font-size: 13.5px; margin-bottom: 6px; }
+
+    .note-body {
+        font-size: 13px;
+        color: #3c4043;
+        line-height: 1.55;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
+    .note-del {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 24px;
+        height: 24px;
+        border: none;
+        border-radius: 50%;
+        background: none;
+        color: var(--ink-faint);
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.15s, background 0.15s;
+    }
+
+    .note:hover .note-del { opacity: 1; }
+    .note-del:hover { background: rgba(0,0,0,0.07); }
+    .note-del svg { width: 13px; height: 13px; }
+
+    /* ---- Studio bottom tabs ---- */
+    .studio-tabs {
+        display: flex;
+        border-top: 1px solid var(--line);
+        padding: 8px;
+        gap: 4px;
+    }
+
+    .studio-tab {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        padding: 9px 4px;
+        border: none;
+        border-radius: 12px;
+        background: none;
+        font-size: 11.5px;
+        font-family: inherit;
+        color: var(--ink-soft);
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+    }
+
+    .studio-tab:hover { background: #f8f9fa; }
+    .studio-tab.active { background: var(--accent-soft); color: var(--accent); }
+    .studio-tab svg { width: 19px; height: 19px; }
+
+    /* ---- Settings dialog ---- */
+    dialog {
+        border: none;
+        border-radius: var(--radius);
+        padding: 0;
+        max-width: 440px;
+        width: calc(100% - 40px);
+        box-shadow: 0 12px 40px rgba(0,0,0,0.22);
+    }
+
+    dialog::backdrop { background: rgba(0,0,0,0.4); }
+
+    .dlg-head {
+        padding: 22px 24px 0;
+    }
+
+    .dlg-head h2 { margin: 0 0 6px; font-size: 19px; }
+    .dlg-head p { margin: 0; font-size: 13px; color: var(--ink-faint); line-height: 1.55; }
+
+    .dlg-body { padding: 20px 24px; }
+
+    .field { margin-bottom: 16px; }
+
+    .field label {
+        display: block;
+        font-size: 12.5px;
+        font-weight: 600;
+        margin-bottom: 6px;
+        color: var(--ink-soft);
+    }
+
+    .field input {
+        width: 100%;
+        padding: 11px 13px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        font: inherit;
+        font-size: 14px;
+        background: #fff;
+        color: inherit;
+    }
+
+    .field input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    .field-hint { font-size: 11.5px; color: var(--ink-faint); margin-top: 5px; line-height: 1.5; }
+
+    .dlg-foot {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 0 24px 22px;
+    }
+
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+    }
+
+    .btn.primary { background: var(--accent); color: #fff; }
+    .btn.primary:hover { background: #1765cc; }
+    .btn.ghost { background: none; color: var(--accent); }
+    .btn.ghost:hover { background: var(--accent-soft); }
+
+    .status-line {
+        font-size: 12.5px;
+        padding: 10px 14px;
+        border-radius: 9px;
+        margin-bottom: 14px;
+        display: none;
+    }
+
+    .status-line.show { display: block; }
+    .status-line.ok { background: #e6f4ea; color: #137333; }
+    .status-line.bad { background: #fce8e6; color: #c5221f; }
+    .status-line.busy { background: #e8f0fe; color: #1967d2; }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 1180px) {
+        .shell { grid-template-columns: 260px minmax(0, 1fr) 300px; }
+    }
+
+    @media (max-width: 940px) {
+        .shell {
+            grid-template-columns: 1fr;
+            grid-template-rows: auto 1fr auto;
+            height: auto;
+            min-height: 100vh;
+        }
+        .panel.sources, .panel.studio { max-height: 320px; }
+        .chat-scroll { min-height: 50vh; }
+    }
+</style>
+</head>
+<body>
+<div class="shell">
+
+    <!-- ============ SOURCES ============ -->
+    <section class="panel sources" aria-label="Sources">
+        <header class="panel-head">
+            <h2 class="panel-title">Sources</h2>
+            <button class="icon-btn" id="btnSettings" title="Settings" aria-label="Settings">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.25.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>
+            </button>
+        </header>
+        <div class="panel-body">
+            <button class="add-source" id="btnAddSource">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                Add source
+            </button>
+            <div id="sourceList"></div>
+        </div>
+    </section>
+
+    <!-- ============ CHAT ============ -->
+    <section class="panel chat" aria-label="Chat">
+        <header class="chat-head">
+            <div>
+                <h1 class="chat-title" id="chatTitle">OpenClaw Studio</h1>
+                <p class="chat-sub" id="chatSub">No sources selected</p>
+            </div>
+            <div style="display:flex;gap:2px">
+                <button class="icon-btn" id="btnNewChat" title="New conversation" aria-label="New conversation">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </button>
+                <button class="icon-btn" id="btnClear" title="Clear conversation" aria-label="Clear conversation">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <div class="chat-scroll" id="chatScroll">
+            <div class="guide">
+                <div class="guide-head">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4-6.2-4.6-6.2 4.6 2.4-7.4L2 9.4h7.6z"/></svg>
+                    Studio Guide
+                </div>
+                <p id="guideText">
+                    Ask anything and the reply streams in live from your OpenClaw gateway.
+                    Sources on the left group your conversations; save any answer to Notes on
+                    the right, then turn it into narrated audio with Audio Overview.
+                </p>
+            </div>
+            <div id="messages"></div>
+        </div>
+
+        <div class="composer-wrap">
+            <div class="chips">
+                <button class="chip" data-prompt="Summarise what we have discussed so far.">Summarise</button>
+                <button class="chip" data-prompt="Explain that in simpler terms.">Explain simply</button>
+                <button class="chip" data-prompt="What should I look at next?">Suggest next steps</button>
+            </div>
+            <div class="composer">
+                <textarea id="composerInput" rows="1" placeholder="Ask a question..."
+                          aria-label="Ask a question"></textarea>
+                <button class="send" id="btnSend" title="Send" aria-label="Send">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                </button>
+            </div>
+            <p class="disclaimer">OpenClaw can make mistakes. Check important information.</p>
+        </div>
+    </section>
+
+    <!-- ============ STUDIO ============ -->
+    <section class="panel studio" aria-label="Studio">
+        <header class="panel-head">
+            <div>
+                <h2 class="panel-title">Studio</h2>
+                <p class="panel-sub">AI Tools</p>
+            </div>
+            <button class="icon-btn" id="btnConn" title="Connection status" aria-label="Connection status">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2zm2 0h6v14H5V5z"/></svg>
+            </button>
+        </header>
+
+        <div class="panel-body" id="studioBody">
+            <div class="tool-card">
+                <div class="tool-head">
+                    <div class="tool-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+                    </div>
+                    <div>
+                        <div class="tool-name">Audio Overview</div>
+                        <div class="tool-desc">Narrate the latest answer</div>
+                    </div>
+                </div>
+                <button class="tool-btn" id="btnAudio">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                    Generate
+                </button>
+                <div class="audio-out" id="audioOut"></div>
+            </div>
+
+            <div class="studio-section">
+                <h3>Notes</h3>
+                <button class="icon-btn" id="btnAddNote" title="Add note" aria-label="Add note">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                </button>
+            </div>
+            <div id="noteList"></div>
+        </div>
+
+        <nav class="studio-tabs">
+            <button class="studio-tab" data-view="audio">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+                Audio
+            </button>
+            <button class="studio-tab active" data-view="notes">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h18v4H3V3zm0 6h12v4H3V9zm0 6h18v4H3v-4z"/></svg>
+                Notes
+            </button>
+            <button class="studio-tab" data-view="studio">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 3v6h2l-3 5-3-5h2V3H7l5-3 5 3h-4zM5 15h14v6H5v-6z"/></svg>
+                Studio
+            </button>
+        </nav>
+    </section>
+</div>
+
+<!-- ============ SETTINGS ============ -->
+<dialog id="dlgSettings">
+    <form method="dialog">
+        <div class="dlg-head">
+            <h2>Connection</h2>
+            <p>Point this page at your OpenClaw gateway. Settings stay in this browser only.</p>
+        </div>
+        <div class="dlg-body">
+            <div class="status-line" id="dlgStatus"></div>
+            <div class="field">
+                <label for="inpBase">Gateway base URL</label>
+                <input id="inpBase" type="text" placeholder="/openclaw-api" autocomplete="off" spellcheck="false">
+                <div class="field-hint">
+                    The path or origin serving <code>/v1/chat/completions</code>.
+                    Use a relative path when Caddy proxies the gateway on this domain.
+                </div>
+            </div>
+            <div class="field">
+                <label for="inpToken">Gateway token</label>
+                <input id="inpToken" type="password" placeholder="Bearer token" autocomplete="current-password">
+                <div class="field-hint">Stored in this browser's local storage, never sent anywhere else.</div>
+            </div>
+            <div class="field">
+                <label for="inpModel">Agent target</label>
+                <input id="inpModel" type="text" placeholder="openclaw/default" autocomplete="off" spellcheck="false">
+                <div class="field-hint">Usually <code>openclaw/default</code>.</div>
+            </div>
+            <div class="field">
+                <label for="inpKokoro">Kokoro TTS endpoint (optional)</label>
+                <input id="inpKokoro" type="text" placeholder="/kokoro/api/tts" autocomplete="off" spellcheck="false">
+                <div class="field-hint">Used by Audio Overview. Leave blank to disable narration.</div>
+            </div>
+        </div>
+        <div class="dlg-foot">
+            <button class="btn ghost" id="btnTest" type="button">Test connection</button>
+            <button class="btn primary" id="btnSaveSettings" value="save">Save</button>
+        </div>
+    </form>
+</dialog>
+<script>
+(() => {
+    "use strict";
+
+    // ---------- Settings ----------
+    const STORE = 'openclaw.studio.v1';
+    const DEFAULTS = {
+        base: '/openclaw-api',
+        token: '',
+        model: 'openclaw/default',
+        kokoro: '/kokoro/api/tts',
+    };
+
+    function loadState() {
+        try {
+            return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(STORE) || '{}'));
+        } catch (e) {
+            return Object.assign({}, DEFAULTS);
+        }
+    }
+
+    function saveState() {
+        try {
+            localStorage.setItem(STORE, JSON.stringify(state));
+        } catch (e) { /* private mode: settings just don't persist */ }
+    }
+
+    const state = loadState();
+
+    // ---------- Conversations ("sources") ----------
+    const CONVOS = 'openclaw.studio.convos.v1';
+    const NOTES = 'openclaw.studio.notes.v1';
+
+    function readJSON(key, fallback) {
+        try {
+            const raw = localStorage.getItem(key);
+            return raw ? JSON.parse(raw) : fallback;
+        } catch (e) { return fallback; }
+    }
+
+    function writeJSON(key, value) {
+        try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+    }
+
+    let convos = readJSON(CONVOS, []);
+    let notes = readJSON(NOTES, []);
+    let activeId = convos.length ? convos[0].id : null;
+    let streaming = false;
+    let abort = null;
+
+    const $ = id => document.getElementById(id);
+    const el = {
+        sourceList: $('sourceList'), chatTitle: $('chatTitle'), chatSub: $('chatSub'),
+        messages: $('messages'), chatScroll: $('chatScroll'), input: $('composerInput'),
+        send: $('btnSend'), noteList: $('noteList'), audioOut: $('audioOut'),
+        audioBtn: $('btnAudio'), dlg: $('dlgSettings'), dlgStatus: $('dlgStatus'),
+    };
+
+    const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    const activeConvo = () => convos.find(c => c.id === activeId) || null;
+
+    function newConvo(title) {
+        const c = { id: uid(), title: title || 'New conversation', messages: [], at: Date.now() };
+        convos.unshift(c);
+        activeId = c.id;
+        writeJSON(CONVOS, convos);
+        return c;
+    }
+
+    // ---------- Rendering ----------
+    function escapeHtml(s) {
+        return s.replace(/[&<>"']/g, ch => (
+            { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+        ));
+    }
+
+    // Minimal, safe markdown: escape first, then apply a small set of patterns.
+    function renderMarkdown(text) {
+        let html = escapeHtml(text);
+        const blocks = [];
+        html = html.replace(/```([\s\S]*?)```/g, (m, code) => {
+            blocks.push('<pre><code>' + code.replace(/^\n/, '') + '</code></pre>');
+            return ' ' + (blocks.length - 1) + ' ';
+        });
+        html = html
+            .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+            .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/(^|[\s(])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+        // Group consecutive bullet lines into a single list.
+        html = html.replace(/(?:^[ \t]*[-*][ \t]+.+(?:\n|$))+/gm, block => {
+            const items = block.trimEnd().split('\n')
+                .map(l => l.replace(/^[ \t]*[-*][ \t]+/, ''))
+                .map(l => '<li>' + l + '</li>').join('');
+            return '<ul>' + items + '</ul>';
+        });
+        html = html.replace(/ (\d+) /g, (m, i) => blocks[Number(i)]);
+        return html;
+    }
+
+    // Notes and narration want readable text, not markdown syntax.
+    function toPlainText(md) {
+        return md
+            .replace(/```[\s\S]*?```/g, ' ')
+            .replace(/`([^`]+)`/g, '$1')
+            .replace(/\*\*([^*]+)\*\*/g, '$1')
+            .replace(/\*([^*]+)\*/g, '$1')
+            .replace(/^[ \t]*[-*][ \t]+/gm, '')
+            .replace(/^#{1,6}[ \t]*/gm, '')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+    }
+
+    function renderSources() {
+        if (!convos.length) {
+            el.sourceList.innerHTML =
+                '<div class="empty">No conversations yet.<br>Select <strong>Add source</strong> to start one.</div>';
+            return;
+        }
+        el.sourceList.innerHTML = convos.map(c => {
+            const count = c.messages.length;
+            const when = count ? new Date(c.at).toLocaleDateString(undefined,
+                { month: 'short', day: 'numeric' }) : 'Empty';
+            return '<div class="source' + (c.id === activeId ? ' selected' : '') + '" data-id="' + c.id + '" role="button" tabindex="0">' +
+                '<div class="source-check">' +
+                    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' +
+                '</div>' +
+                '<div class="source-icon doc">' +
+                    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>' +
+                '</div>' +
+                '<div class="source-text">' +
+                    '<div class="source-name">' + escapeHtml(c.title) + '</div>' +
+                    '<div class="source-meta">' + count + ' message' + (count === 1 ? '' : 's') + ' &middot; ' + when + '</div>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+    }
+
+    function renderChat() {
+        const c = activeConvo();
+        el.chatTitle.textContent = c ? c.title : 'OpenClaw Studio';
+        const n = c ? c.messages.length : 0;
+        el.chatSub.textContent = c
+            ? n + ' message' + (n === 1 ? '' : 's') + ' in this conversation'
+            : 'No conversation selected';
+
+        if (!c || !c.messages.length) {
+            el.messages.innerHTML = '';
+            return;
+        }
+        el.messages.innerHTML = c.messages.map(m =>
+            '<div class="msg ' + m.role + '"><div class="bubble">' +
+            (m.role === 'assistant' ? renderMarkdown(m.content) : escapeHtml(m.content)) +
+            '</div></div>'
+        ).join('');
+        scrollDown();
+    }
+
+    function renderNotes() {
+        if (!notes.length) {
+            el.noteList.innerHTML =
+                '<div class="empty">No notes yet.<br>Save an answer or add one with +.</div>';
+            return;
+        }
+        el.noteList.innerHTML = notes.map(n =>
+            '<div class="note" data-id="' + n.id + '">' +
+                '<button class="note-del" title="Delete note" aria-label="Delete note">' +
+                    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>' +
+                '</button>' +
+                '<div class="note-title">' + escapeHtml(n.title) + '</div>' +
+                '<div class="note-body">' + escapeHtml(n.body) + '</div>' +
+            '</div>'
+        ).join('');
+    }
+
+    function scrollDown() {
+        el.chatScroll.scrollTop = el.chatScroll.scrollHeight;
+    }
+
+    // ---------- Gateway ----------
+    function apiUrl(path) {
+        const base = (state.base || '').replace(/\/+$/, '');
+        return base + path;
+    }
+
+    async function send(text) {
+        if (streaming) return;
+        if (!state.token) { openSettings('Add your gateway token to start chatting.'); return; }
+
+        let c = activeConvo() || newConvo();
+        if (c.messages.length === 0) {
+            // Name the conversation after its opening question.
+            c.title = text.length > 42 ? text.slice(0, 42).trim() + '...' : text;
+        }
+        c.messages.push({ role: 'user', content: text });
+        c.at = Date.now();
+        writeJSON(CONVOS, convos);
+        renderSources();
+        renderChat();
+
+        streaming = true;
+        el.send.disabled = true;
+
+        // Placeholder bubble that fills in as tokens arrive.
+        const wrap = document.createElement('div');
+        wrap.className = 'msg assistant';
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble caret';
+        wrap.appendChild(bubble);
+        el.messages.appendChild(wrap);
+        scrollDown();
+
+        let acc = '';
+        abort = new AbortController();
+
+        try {
+            const res = await fetch(apiUrl('/v1/chat/completions'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + state.token,
+                },
+                signal: abort.signal,
+                body: JSON.stringify({
+                    model: state.model || 'openclaw/default',
+                    stream: true,
+                    // A stable `user` keeps one gateway session per conversation.
+                    user: 'studio-' + c.id,
+                    messages: c.messages.map(m => ({ role: m.role, content: m.content })),
+                }),
+            });
+
+            if (!res.ok) {
+                const detail = (await res.text()).slice(0, 300);
+                throw new Error('Gateway returned ' + res.status + '. ' + detail);
+            }
+            if (!res.body) throw new Error('This browser cannot read streaming responses.');
+
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+
+                // SSE frames are separated by a blank line.
+                const frames = buffer.split(/\r?\n\r?\n/);
+                buffer = frames.pop() || '';
+
+                for (const frame of frames) {
+                    for (const line of frame.split(/\r?\n/)) {
+                        if (!line.startsWith('data:')) continue;
+                        const payload = line.slice(5).trim();
+                        if (!payload || payload === '[DONE]') continue;
+                        let json;
+                        try { json = JSON.parse(payload); } catch (e) { continue; }
+                        const delta = json.choices && json.choices[0] && json.choices[0].delta;
+                        if (delta && typeof delta.content === 'string') {
+                            acc += delta.content;
+                            bubble.innerHTML = renderMarkdown(acc);
+                            scrollDown();
+                        }
+                    }
+                }
+            }
+
+            if (!acc) throw new Error('The gateway returned an empty reply.');
+
+            bubble.classList.remove('caret');
+            c.messages.push({ role: 'assistant', content: acc });
+            c.at = Date.now();
+            writeJSON(CONVOS, convos);
+            renderSources();
+
+        } catch (err) {
+            bubble.classList.remove('caret');
+            if (err.name === 'AbortError') {
+                // Keep whatever streamed in before the user stopped it.
+                if (acc) {
+                    c.messages.push({ role: 'assistant', content: acc });
+                    writeJSON(CONVOS, convos);
+                }
+            } else {
+                wrap.className = 'msg error';
+                // "Failed to fetch" tells the user nothing actionable.
+                bubble.textContent = /failed to fetch|networkerror|load failed/i.test(err.message)
+                    ? 'Could not reach the gateway at ' + apiUrl('/v1/chat/completions') +
+                      '. Check the base URL in settings, and that /v1/chat/completions is enabled.'
+                    : err.message;
+            }
+        } finally {
+            streaming = false;
+            abort = null;
+            el.send.disabled = false;
+            el.input.focus();
+        }
+    }
+
+    // ---------- Audio Overview (Kokoro) ----------
+    async function narrateLatest() {
+        const c = activeConvo();
+        const last = c && c.messages.slice().reverse().find(m => m.role === 'assistant');
+        if (!last) { flashAudio('Ask something first, then narrate the answer.'); return; }
+        if (!state.kokoro) { openSettings('Set the Kokoro endpoint to enable Audio Overview.'); return; }
+
+        el.audioBtn.disabled = true;
+        el.audioOut.innerHTML = '<div class="tool-desc">Generating narration...</div>';
+
+        try {
+            const res = await fetch(state.kokoro, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Kokoro-Key': state.token },
+                body: JSON.stringify({
+                    // Strip markdown so the narration doesn't read punctuation aloud.
+                    text: toPlainText(last.content).slice(0, 5000),
+                    voice: 'af_sarah', language: 'en-us', speed: 1.0,
+                }),
+            });
+            if (!res.ok) throw new Error('Kokoro returned ' + res.status);
+            const url = URL.createObjectURL(await res.blob());
+            el.audioOut.innerHTML = '<audio controls src="' + url + '"></audio>';
+        } catch (err) {
+            flashAudio(err.message);
+        } finally {
+            el.audioBtn.disabled = false;
+        }
+    }
+
+    function flashAudio(message) {
+        el.audioOut.innerHTML = '<div class="tool-desc" style="color:#c5221f">' +
+            escapeHtml(message) + '</div>';
+    }
+
+    // ---------- Settings dialog ----------
+    function openSettings(message) {
+        $('inpBase').value = state.base;
+        $('inpToken').value = state.token;
+        $('inpModel').value = state.model;
+        $('inpKokoro').value = state.kokoro;
+        setDlgStatus(message || '', message ? 'busy' : '');
+        el.dlg.showModal();
+    }
+
+    function setDlgStatus(text, kind) {
+        el.dlgStatus.textContent = text;
+        el.dlgStatus.className = 'status-line' + (text ? ' show ' + (kind || 'busy') : '');
+    }
+
+    // ---------- Events ----------
+    $('btnSettings').addEventListener('click', () => openSettings());
+    $('btnConn').addEventListener('click', () => openSettings());
+
+    $('btnSaveSettings').addEventListener('click', () => {
+        state.base = $('inpBase').value.trim() || DEFAULTS.base;
+        state.token = $('inpToken').value.trim();
+        state.model = $('inpModel').value.trim() || DEFAULTS.model;
+        state.kokoro = $('inpKokoro').value.trim();
+        saveState();
+    });
+
+    $('btnTest').addEventListener('click', async () => {
+        const base = $('inpBase').value.trim() || DEFAULTS.base;
+        const token = $('inpToken').value.trim();
+        setDlgStatus('Testing connection...', 'busy');
+        try {
+            const res = await fetch(base.replace(/\/+$/, '') + '/v1/models', {
+                headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+            });
+            const body = await res.text();
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            let ids = [];
+            try {
+                const json = JSON.parse(body);
+                ids = (json.data || []).map(m => m.id);
+            } catch (e) {
+                throw new Error('That URL did not return the API - check the base path.');
+            }
+            setDlgStatus(ids.length
+                ? 'Connected. Available: ' + ids.slice(0, 3).join(', ')
+                : 'Connected, but no agent targets were listed.', 'ok');
+        } catch (err) {
+            setDlgStatus('Could not connect: ' + err.message, 'bad');
+        }
+    });
+
+    $('btnAddSource').addEventListener('click', () => {
+        newConvo();
+        renderSources();
+        renderChat();
+        el.input.focus();
+    });
+
+    $('btnNewChat').addEventListener('click', () => {
+        newConvo();
+        renderSources();
+        renderChat();
+        el.input.focus();
+    });
+
+    $('btnClear').addEventListener('click', () => {
+        const c = activeConvo();
+        if (!c || !c.messages.length) return;
+        if (!confirm('Clear this conversation?')) return;
+        convos = convos.filter(x => x.id !== c.id);
+        activeId = convos.length ? convos[0].id : null;
+        writeJSON(CONVOS, convos);
+        renderSources();
+        renderChat();
+    });
+
+    el.sourceList.addEventListener('click', e => {
+        const row = e.target.closest('.source');
+        if (!row) return;
+        activeId = row.dataset.id;
+        renderSources();
+        renderChat();
+    });
+
+    el.sourceList.addEventListener('keydown', e => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const row = e.target.closest('.source');
+        if (!row) return;
+        e.preventDefault();
+        activeId = row.dataset.id;
+        renderSources();
+        renderChat();
+    });
+
+    el.send.addEventListener('click', () => {
+        const text = el.input.value.trim();
+        if (!text) return;
+        el.input.value = '';
+        el.input.style.height = 'auto';
+        send(text);
+    });
+
+    el.input.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            el.send.click();
+        }
+    });
+
+    // Grow the composer with its content, up to the CSS max-height.
+    el.input.addEventListener('input', () => {
+        el.input.style.height = 'auto';
+        el.input.style.height = Math.min(el.input.scrollHeight, 160) + 'px';
+    });
+
+    document.querySelectorAll('.chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            el.input.value = chip.dataset.prompt;
+            el.input.focus();
+            el.input.dispatchEvent(new Event('input'));
+        });
+    });
+
+    el.audioBtn.addEventListener('click', narrateLatest);
+
+    $('btnAddNote').addEventListener('click', () => {
+        const c = activeConvo();
+        const last = c && c.messages.slice().reverse().find(m => m.role === 'assistant');
+        const body = last ? toPlainText(last.content) : (prompt('Note text:') || '');
+        if (!body.trim()) return;
+        notes.unshift({
+            id: uid(),
+            title: last ? 'Saved response' : 'Note',
+            body: body.slice(0, 600),
+        });
+        writeJSON(NOTES, notes);
+        renderNotes();
+    });
+
+    el.noteList.addEventListener('click', e => {
+        const btn = e.target.closest('.note-del');
+        if (!btn) return;
+        const id = btn.closest('.note').dataset.id;
+        notes = notes.filter(n => n.id !== id);
+        writeJSON(NOTES, notes);
+        renderNotes();
+    });
+
+    document.querySelectorAll('.studio-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.studio-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+        });
+    });
+
+    // ---------- Boot ----------
+    renderSources();
+    renderChat();
+    renderNotes();
+    if (!state.token) openSettings('Welcome. Add your gateway details to begin.');
+})();
+</script>
+</body>
+
+</html>

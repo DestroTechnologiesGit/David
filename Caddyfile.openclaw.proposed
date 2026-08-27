@@ -1,0 +1,22 @@
+# Proposed Caddy config adding OpenClaw Studio (the simplified UI).
+# Review before replacing Caddyfile.openclaw — see openclaw-ui/README.md.
+51-81-81-208.sslip.io {
+    handle_path /kokoro/* {
+        reverse_proxy 127.0.0.1:8890
+    }
+
+    # Simplified NotebookLM-style UI.
+    handle /studio* {
+        root * /home/ubuntu/openclaw-ui
+        rewrite * /index.html
+        file_server
+    }
+
+    # Gateway API for the UI. Same origin, so no CORS setup is needed.
+    handle_path /openclaw-api/* {
+        reverse_proxy 127.0.0.1:18789
+    }
+
+    # Built-in OpenClaw Control UI stays at the root, untouched.
+    reverse_proxy 127.0.0.1:18789
+}
