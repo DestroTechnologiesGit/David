@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local dev server for OpenClaw Studio.
+"""Local dev server for LiveContent Studio.
 
 Serves index.html and proxies /openclaw-api/* to the gateway, mirroring what
 Caddy does on the VPS. Same-origin, so the browser's CORS rules are satisfied
@@ -124,7 +124,7 @@ def main() -> None:
     httpd.timeout_s = args.timeout
 
     url = f"http://{args.host}:{args.port}/"
-    print(f"OpenClaw Studio  ->  {url}")
+    print(f"LiveContent Studio  ->  {url}")
     print(f"proxying {API_PREFIX}/*  ->  {httpd.gateway}")
     print("\nIn the settings dialog use:")
     print(f"  Gateway base URL : {API_PREFIX}")
