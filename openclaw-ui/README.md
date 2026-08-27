@@ -5,10 +5,15 @@ HTML file. It is presented as a LiveContent product; the OpenClaw name does
 not appear in the UI. It does **not** replace or modify the built-in
 OpenClaw Control UI, which stays available at its own URL for admin work.
 
-- **Sources** — conversations, stored in the browser. **Add source** opens a
-  dialog to start one from a document (PDF / `.docx` / `.txt`, drag-and-drop or
-  file picker, parsed in the browser), pasted text, a research topic handed to
-  the agent, or a blank chat
+- **Sources** — the research surface, kept separate from the chat. Search the
+  web from the panel, tick the results you want and **Import** them; they are
+  saved to the current notebook's source list rather than starting a
+  conversation. **Add source** adds a document (PDF / `.docx` / `.txt`,
+  drag-and-drop or file picker, parsed in the browser) or pasted text. Each row
+  has a checkbox: only ticked sources are sent as context with the next
+  question, so the answer can be re-grounded without retyping it
+- **Notebooks** — conversations, listed under the sources. Each notebook owns
+  its own source list; switching notebooks swaps the sources shown
 - **Chat** — streaming replies from the gateway
 - **Notes** — saved answers, listed in the left panel under Sources.
   **View all** opens a full-screen page of every note, searchable, each showing
@@ -146,5 +151,9 @@ browser's local storage only.
   browser profile as holding an operator credential.
 - Audio Overview sends the latest answer to Kokoro, capped at 5,000 characters
   to match the bridge's limit.
-- Sources are conversations, not uploaded documents. Document ingestion would
-  need a retrieval layer that OpenClaw's chat endpoint does not itself provide.
+- Sources are attached to each request as a system message, not indexed. There
+  is no retrieval layer, so very large documents are truncated (20,000
+  characters per source) and many ticked sources at once can exceed the model's
+  context window. Untick what a question does not need.
+- Sources live in `localStorage` alongside conversations, so the same per-browser
+  limits apply.

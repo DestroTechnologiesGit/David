@@ -405,6 +405,88 @@
         margin-top: 1px;
     }
 
+    /* A source row is a checkbox, not a navigation target: ticking it
+       includes the source in the next question, it does not switch view. */
+    .sources-head[hidden] { display: none; }
+
+    .sources-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 4px 4px;
+        font-size: 12px;
+        color: var(--ink-faint);
+    }
+
+    .source.pick { cursor: default; }
+    .source.pick:hover { background: #f8f9fa; }
+
+    .source-check.box {
+        width: 18px;
+        height: 18px;
+        border: 2px solid var(--ink-faint);
+        border-radius: 4px;
+        background: transparent;
+        cursor: pointer;
+        flex: none;
+    }
+
+    .source.on .source-check.box {
+        background: var(--accent);
+        border-color: var(--accent);
+    }
+
+    .source-check.box svg { opacity: 0; width: 14px; height: 14px; color: #fff; }
+    .source.on .source-check.box svg { opacity: 1; }
+
+    .source-del {
+        border: 0;
+        background: none;
+        color: var(--ink-faint);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 6px;
+        opacity: 0;
+        flex: none;
+    }
+
+    .source:hover .source-del { opacity: 1; }
+    .source-del:hover { background: #fce8e6; color: #c5221f; }
+    .source-del svg { width: 15px; height: 15px; }
+
+    .source-host {
+        font-size: 12px;
+        color: var(--ink-faint);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Notebook rows stay navigational. */
+    .convo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 10px;
+        border-radius: 10px;
+        cursor: pointer;
+    }
+
+    .convo:hover { background: #f8f9fa; }
+    .convo.selected { background: var(--accent-soft); }
+
+    .convo-text { min-width: 0; flex: 1; }
+
+    .convo-name {
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .convo-meta { font-size: 12px; color: var(--ink-faint); margin-top: 1px; }
+
     .empty {
         padding: 28px 16px;
         text-align: center;
@@ -1228,7 +1310,26 @@
             </div>
 
             <div class="search-status" id="searchStatus"></div>
+
+            <!-- Saved sources for the current notebook -->
+            <div class="sources-head" id="sourcesHead" hidden>
+                <button class="link-btn" id="btnSelectAllSources">Select all</button>
+                <span id="sourcesCount"></span>
+            </div>
             <div id="sourceList"></div>
+
+            <!-- Notebooks (conversations) -->
+            <div class="sidebar-section">
+                <div class="sidebar-head">
+                    <h3>Notebooks</h3>
+                    <div class="sidebar-head-actions">
+                        <button class="icon-btn small" id="btnNewConvo" title="New notebook" aria-label="New notebook">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div id="convoList"></div>
+            </div>
 
             <div class="sidebar-section">
                 <div class="sidebar-head">
@@ -1555,29 +1656,75 @@
             .trim();
     }
 
+    // The Sources panel lists the material for the active notebook. Ticking a
+    // row includes it as context in the next question; it is not navigation.
+    const ICON_DOC = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>';
+    const ICON_LINK = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>';
+
     function renderSources() {
-        if (!convos.length) {
+        const c = activeConvo();
+        const list = (c && c.sources) || [];
+
+        $('sourcesHead').hidden = !list.length;
+        if (list.length) {
+            const on = list.filter(s => s.on !== false).length;
+            $('sourcesCount').textContent = on + ' of ' + list.length + ' selected';
+            $('btnSelectAllSources').textContent =
+                on === list.length ? 'Deselect all' : 'Select all';
+        }
+
+        if (!c) {
             el.sourceList.innerHTML =
-                '<div class="empty">No conversations yet.<br>Select <strong>Add source</strong> to start one.</div>';
+                '<div class="empty">No notebook open.<br>Select <strong>Add source</strong> to start one.</div>';
             return;
         }
-        el.sourceList.innerHTML = convos.map(c => {
-            const count = c.messages.length;
-            const when = count ? new Date(c.at).toLocaleDateString(undefined,
-                { month: 'short', day: 'numeric' }) : 'Empty';
-            return '<div class="source' + (c.id === activeId ? ' selected' : '') + '" data-id="' + c.id + '" role="button" tabindex="0">' +
-                '<div class="source-check">' +
+        if (!list.length) {
+            el.sourceList.innerHTML =
+                '<div class="empty">Saved sources will appear here.<br>'
+                + 'Search the web above, or select <strong>Add source</strong>.</div>';
+            return;
+        }
+
+        el.sourceList.innerHTML = list.map((s, i) => {
+            const isLink = !!s.url;
+            const sub = isLink ? hostOf(s.url) : (s.kind || 'Document');
+            return '<div class="source pick' + (s.on !== false ? ' on' : '') + '" data-i="' + i + '">' +
+                '<div class="source-check box" role="checkbox" tabindex="0" '
+                    + 'aria-checked="' + (s.on !== false) + '">' +
                     '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' +
                 '</div>' +
-                '<div class="source-icon doc">' +
-                    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>' +
+                '<div class="source-icon ' + (isLink ? 'link' : 'doc') + '">' +
+                    (isLink ? ICON_LINK : ICON_DOC) +
                 '</div>' +
                 '<div class="source-text">' +
-                    '<div class="source-name">' + escapeHtml(c.title) + '</div>' +
-                    '<div class="source-meta">' +
-                        (c.sources && c.sources.length
-                            ? c.sources.length + ' source' + (c.sources.length === 1 ? '' : 's') + ' &middot; '
-                            : '') +
+                    '<div class="source-name">' + escapeHtml(s.title) + '</div>' +
+                    '<div class="source-host">' + escapeHtml(sub) + '</div>' +
+                '</div>' +
+                '<button class="source-del" data-del="' + i + '" title="Remove source" '
+                    + 'aria-label="Remove source">' +
+                    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>' +
+                '</button>' +
+            '</div>';
+        }).join('');
+    }
+
+    function renderConvos() {
+        const box = $('convoList');
+        if (!convos.length) {
+            box.innerHTML = '<div class="empty">No notebooks yet.</div>';
+            return;
+        }
+        box.innerHTML = convos.map(c => {
+            const count = c.messages.length;
+            const nSrc = (c.sources || []).length;
+            const when = (count || nSrc) ? new Date(c.at).toLocaleDateString(undefined,
+                { month: 'short', day: 'numeric' }) : 'Empty';
+            return '<div class="convo' + (c.id === activeId ? ' selected' : '') + '" data-id="' + c.id + '" role="button" tabindex="0">' +
+                '<div class="source-icon doc">' + ICON_DOC + '</div>' +
+                '<div class="convo-text">' +
+                    '<div class="convo-name">' + escapeHtml(c.title) + '</div>' +
+                    '<div class="convo-meta">' +
+                        (nSrc ? nSrc + ' source' + (nSrc === 1 ? '' : 's') + ' &middot; ' : '') +
                         count + ' message' + (count === 1 ? '' : 's') + ' &middot; ' + when +
                     '</div>' +
                 '</div>' +
@@ -1592,10 +1739,10 @@
         if (!c) {
             el.chatSub.textContent = 'No conversation selected';
         } else if (c.sources && c.sources.length) {
-            el.chatSub.textContent = c.sources.length + ' source'
-                + (c.sources.length === 1 ? '' : 's') + ' \u00B7 '
-                + new Date(c.at).toLocaleDateString(undefined,
-                    { month: 'short', day: 'numeric', year: 'numeric' });
+            const on = c.sources.filter(s => s.on !== false).length;
+            el.chatSub.textContent = on + ' of ' + c.sources.length + ' source'
+                + (c.sources.length === 1 ? '' : 's') + ' selected \u00B7 '
+                + n + ' message' + (n === 1 ? '' : 's');
         } else {
             el.chatSub.textContent = n + ' message' + (n === 1 ? '' : 's') + ' in this conversation';
         }
@@ -1640,6 +1787,29 @@
         return base + path;
     }
 
+    // Ticked sources ride along as a system message, rebuilt on every send so
+    // that changing the selection changes what the next answer is grounded in.
+    function withSources(c) {
+        const msgs = c.messages.map(m => ({ role: m.role, content: m.content }));
+        const picked = (c.sources || []).filter(s => s.on !== false);
+        if (!picked.length) return msgs;
+
+        const list = picked.map((s, i) => {
+            const head = (i + 1) + '. ' + s.title + (s.url ? ' — ' + s.url : '');
+            const body = s.text
+                ? '\n' + s.text.slice(0, 20000)
+                : (s.snippet ? '\n' + s.snippet : '');
+            return head + body;
+        }).join('\n\n');
+
+        return [{
+            role: 'system',
+            content: 'Answer using these sources the user has selected. '
+                   + 'Cite them by title where relevant. If they do not cover the '
+                   + 'question, say so rather than guessing.\n\n' + list,
+        }].concat(msgs);
+    }
+
     async function send(text, options) {
         if (streaming) return;
         if (!state.token) { openSettings('Add your access token to start chatting.'); return; }
@@ -1658,6 +1828,7 @@
         c.at = Date.now();
         writeJSON(CONVOS, convos);
         renderSources();
+        renderConvos();
         renderChat();
 
         streaming = true;
@@ -1697,7 +1868,7 @@
                     stream: true,
                     // A stable `user` keeps one gateway session per conversation.
                     user: 'studio-' + c.id,
-                    messages: c.messages.map(m => ({ role: m.role, content: m.content })),
+                    messages: withSources(c),
                 }),
             });
 
@@ -1745,6 +1916,7 @@
             c.at = Date.now();
             writeJSON(CONVOS, convos);
             renderSources();
+            renderConvos();
 
         } catch (err) {
             bubble.classList.remove('caret');
@@ -2073,18 +2245,17 @@
             const docs = [];
             for (const file of list) docs.push(await addFileSource(file));
 
-            const c = newConvo(docs.length === 1 ? docs[0].name
-                                                 : `${docs.length} documents`);
-            // Seed the conversation with the document text so the agent has it
-            // as context; the user's next question is answered against it.
-            const body = docs.map(d => `--- ${d.name} ---\n${d.text}`).join('\n\n');
-            c.messages.push({
-                role: 'user',
-                content: `Here is the content of ${docs.length === 1 ? 'a document' : 'some documents'} `
-                       + `to use as context for my questions.\n\n${body}`,
-            });
+            // Documents become saved sources; their text is attached to the
+            // request only while the row stays ticked.
+            const c = activeConvo() || newConvo(docs.length === 1 ? docs[0].name
+                                                                 : `${docs.length} documents`);
+            if (!c.sources) c.sources = [];
+            docs.forEach(d => c.sources.push({
+                title: d.name, kind: 'Document', text: d.text, on: true,
+            }));
             writeJSON(CONVOS, convos);
             renderSources();
+            renderConvos();
             renderChat();
 
             const chars = docs.reduce((n, d) => n + d.text.length, 0);
@@ -2101,6 +2272,7 @@
         const c = newConvo(topic.length > 42 ? topic.slice(0, 42).trim() + '...' : topic);
         writeJSON(CONVOS, convos);
         renderSources();
+        renderConvos();
         renderChat();
         $('dlgSource').close();
         send(`Research this topic and summarise what you find: ${topic}`);
@@ -2128,13 +2300,14 @@
     $('btnSrcPaste').addEventListener('click', () => {
         const text = prompt('Paste the text to use as a source:');
         if (!text || !text.trim()) return;
-        const c = newConvo('Pasted text');
-        c.messages.push({
-            role: 'user',
-            content: `Here is some text to use as context for my questions.\n\n${text.trim()}`,
+        const c = activeConvo() || newConvo('Pasted text');
+        if (!c.sources) c.sources = [];
+        c.sources.push({
+            title: 'Pasted text', kind: 'Pasted text', text: text.trim(), on: true,
         });
         writeJSON(CONVOS, convos);
         renderSources();
+        renderConvos();
         renderChat();
         $('dlgSource').close();
         el.input.focus();
@@ -2143,6 +2316,7 @@
     $('btnSrcBlank').addEventListener('click', () => {
         newConvo();
         renderSources();
+        renderConvos();
         renderChat();
         $('dlgSource').close();
         el.input.focus();
@@ -2236,6 +2410,7 @@
         if (!convos.some(c => c.id === note.convoId)) return;
         activeId = note.convoId;
         renderSources();
+        renderConvos();
         renderChat();
         $('notesPage').hidden = true;
     });
@@ -2370,30 +2545,42 @@
         return content;
     }
 
-    // Import the ticked results as a conversation, then summarise them.
-    async function importSelected() {
+    // Import the ticked results into the current notebook's source list.
+    // Collecting sources is deliberately separate from asking questions: the
+    // import only fills the panel, it does not start or hijack a conversation.
+    function importSelected() {
         const picked = lastResults.filter(r => r.checked);
         if (!picked.length) return;
 
-        const c = newConvo(lastQuery.length > 42 ? lastQuery.slice(0, 42).trim() + '...' : lastQuery);
-        c.sources = picked.map(r => ({ title: r.title, url: r.url, snippet: r.snippet }));
+        const c = activeConvo() || newConvo(
+            lastQuery.length > 42 ? lastQuery.slice(0, 42).trim() + '...' : lastQuery);
+        if (!c.sources) c.sources = [];
+
+        // Re-importing the same URL should not duplicate the row.
+        const seen = new Set(c.sources.map(s => s.url).filter(Boolean));
+        let added = 0;
+        picked.forEach(r => {
+            if (r.url && seen.has(r.url)) return;
+            if (r.url) seen.add(r.url);
+            c.sources.push({ title: r.title, url: r.url, snippet: r.snippet, on: true });
+            added++;
+        });
         writeJSON(CONVOS, convos);
 
         elResults.hidden = true;
         lastResults = [];
         renderSources();
+        renderConvos();
         renderChat();
-        setSearchStatus('Imported ' + picked.length + ' source'
-                      + (picked.length === 1 ? '' : 's') + '. Summarising...');
 
-        // Ask for an overview, which becomes the conversation's first exchange.
-        const list = picked.map(r => '- ' + r.title + ' (' + r.url + ')'
-                                   + (r.snippet ? ': ' + r.snippet : '')).join('\n');
-        const ask = 'I have gathered these sources about "' + lastQuery + '":\n\n' + list
-                  + '\n\nWrite a short overview of what they collectively cover. '
-                  + 'I will ask follow-up questions about them.';
-        setSearchStatus('');
-        send(ask, { keepTitle: true, display: 'Summarise these ' + picked.length + ' sources about ' + lastQuery + '.' });
+        const skipped = picked.length - added;
+        setSearchStatus(
+            added
+                ? 'Added ' + added + ' source' + (added === 1 ? '' : 's')
+                  + (skipped ? ' (' + skipped + ' already saved)' : '')
+                  + '. Ask a question to use ' + (added === 1 ? 'it' : 'them') + '.'
+                : 'Those sources are already saved.',
+            'ok');
     }
 
     $('btnPanelSearch').addEventListener('click', () => {
@@ -2483,6 +2670,7 @@
     $('btnNewChat').addEventListener('click', () => {
         newConvo();
         renderSources();
+        renderConvos();
         renderChat();
         el.input.focus();
     });
@@ -2495,15 +2683,35 @@
         activeId = convos.length ? convos[0].id : null;
         writeJSON(CONVOS, convos);
         renderSources();
+        renderConvos();
         renderChat();
     });
 
-    el.sourceList.addEventListener('click', e => {
-        const row = e.target.closest('.source');
-        if (!row) return;
-        activeId = row.dataset.id;
+    function toggleSource(i) {
+        const c = activeConvo();
+        if (!c || !c.sources || !c.sources[i]) return;
+        c.sources[i].on = c.sources[i].on === false;
+        writeJSON(CONVOS, convos);
         renderSources();
         renderChat();
+    }
+
+    el.sourceList.addEventListener('click', e => {
+        const del = e.target.closest('[data-del]');
+        if (del) {
+            const c = activeConvo();
+            const i = Number(del.dataset.del);
+            if (!c || !c.sources || !c.sources[i]) return;
+            if (!confirm('Remove "' + c.sources[i].title + '" from this notebook?')) return;
+            c.sources.splice(i, 1);
+            writeJSON(CONVOS, convos);
+            renderSources();
+            renderConvos();
+            renderChat();
+            return;
+        }
+        const row = e.target.closest('.source');
+        if (row) toggleSource(Number(row.dataset.i));
     });
 
     el.sourceList.addEventListener('keydown', e => {
@@ -2511,9 +2719,45 @@
         const row = e.target.closest('.source');
         if (!row) return;
         e.preventDefault();
-        activeId = row.dataset.id;
+        toggleSource(Number(row.dataset.i));
+    });
+
+    $('btnSelectAllSources').addEventListener('click', () => {
+        const c = activeConvo();
+        if (!c || !c.sources || !c.sources.length) return;
+        const allOn = c.sources.every(s => s.on !== false);
+        c.sources.forEach(s => { s.on = !allOn; });
+        writeJSON(CONVOS, convos);
         renderSources();
         renderChat();
+    });
+
+    $('convoList').addEventListener('click', e => {
+        const row = e.target.closest('.convo');
+        if (!row) return;
+        activeId = row.dataset.id;
+        renderSources();
+        renderConvos();
+        renderChat();
+    });
+
+    $('convoList').addEventListener('keydown', e => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const row = e.target.closest('.convo');
+        if (!row) return;
+        e.preventDefault();
+        activeId = row.dataset.id;
+        renderSources();
+        renderConvos();
+        renderChat();
+    });
+
+    $('btnNewConvo').addEventListener('click', () => {
+        newConvo();
+        renderSources();
+        renderConvos();
+        renderChat();
+        el.input.focus();
     });
 
     el.send.addEventListener('click', () => {
@@ -2582,6 +2826,7 @@
 
     // ---------- Boot ----------
     renderSources();
+    renderConvos();
     renderChat();
     renderNotes();
     if (!state.token) openSettings('Welcome. Add your connection details to begin.');
