@@ -23,3 +23,6 @@ env/
 
 kokoro-tts/kokoro-v1.0.onnx
 kokoro-tts/voices-v1.0.bin
+
+.env
+kokoro-web/.env

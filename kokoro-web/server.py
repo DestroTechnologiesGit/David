@@ -4,17 +4,33 @@
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hmac
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
 import threading
 
-HOST = "127.0.0.1"
-PORT = 8890
-MAX_TEXT_LENGTH = 5000
-FRONTEND = Path("/home/ubuntu/kokoro-frontend.html")
-OPENCLAW_CONFIG = Path("/home/ubuntu/.openclaw/openclaw.json")
-KOKORO = "/home/ubuntu/.local/bin/kokoro-tts"
+
+def load_dotenv(path: Path) -> None:
+    """Populate os.environ from a simple KEY=VALUE file, without overriding."""
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
+
+
+load_dotenv(Path(os.environ.get("KOKORO_ENV_FILE", Path(__file__).resolve().parent / ".env")))
+
+HOST = os.environ.get("KOKORO_HOST", "127.0.0.1")
+PORT = int(os.environ.get("KOKORO_PORT", "8890"))
+MAX_TEXT_LENGTH = int(os.environ.get("KOKORO_MAX_TEXT_LENGTH", "5000"))
+FRONTEND = Path(os.environ.get("KOKORO_FRONTEND", "/home/ubuntu/kokoro-frontend.html"))
+OPENCLAW_CONFIG = Path(os.environ.get("OPENCLAW_CONFIG", "/home/ubuntu/.openclaw/openclaw.json"))
+KOKORO = os.environ.get("KOKORO_BIN", "/home/ubuntu/.local/bin/kokoro-tts")
 SYNTHESIS_LOCK = threading.Lock()
 
 
