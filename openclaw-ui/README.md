@@ -10,7 +10,10 @@ OpenClaw Control UI, which stays available at its own URL for admin work.
   file picker, parsed in the browser), pasted text, a research topic handed to
   the agent, or a blank chat
 - **Chat** — streaming replies from the gateway
-- **Studio** — Notes and an Audio Overview button wired to the Kokoro TTS bridge
+- **Notes** — saved answers, listed in the left panel under Sources.
+  **View all** opens a full-screen page of every note, searchable, each showing
+  which conversation it came from; selecting one jumps back to that conversation
+- **Studio** — Audio Overview, wired to the narration service
 
 ## Why a separate app
 

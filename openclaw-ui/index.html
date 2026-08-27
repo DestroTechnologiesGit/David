@@ -700,6 +700,15 @@
         word-wrap: break-word;
     }
 
+    /* Sidebar notes stay compact; the full text is on the all-notes page. */
+    #noteList .note-body {
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        white-space: normal;
+    }
+
     .note-del {
         position: absolute;
         top: 8px;
@@ -720,33 +729,170 @@
     .note-del svg { width: 13px; height: 13px; }
 
     /* ---- Studio bottom tabs ---- */
-    .studio-tabs {
-        display: flex;
+    /* ---- Sidebar notes ---- */
+    .sidebar-section {
+        margin-top: 26px;
+        padding-top: 18px;
         border-top: 1px solid var(--line);
-        padding: 8px;
-        gap: 4px;
     }
 
-    .studio-tab {
-        flex: 1;
+    .sidebar-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .sidebar-head h3 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .sidebar-head-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .icon-btn.small { width: 28px; height: 28px; }
+    .icon-btn.small svg { width: 17px; height: 17px; }
+
+    /* ---- All-notes page ---- */
+    .notes-page {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        background: var(--bg);
         display: flex;
         flex-direction: column;
-        align-items: center;
-        gap: 5px;
-        padding: 9px 4px;
-        border: none;
-        border-radius: 12px;
-        background: none;
-        font-size: 11.5px;
-        font-family: inherit;
-        color: var(--ink-soft);
-        cursor: pointer;
-        transition: background 0.15s, color 0.15s;
     }
 
-    .studio-tab:hover { background: #f8f9fa; }
-    .studio-tab.active { background: var(--accent-soft); color: var(--accent); }
-    .studio-tab svg { width: 19px; height: 19px; }
+    .notes-page[hidden] { display: none; }
+
+    .notes-page-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 26px 32px 20px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--line);
+    }
+
+    .notes-page-head h1 {
+        margin: 0;
+        font-size: 25px;
+        font-weight: 600;
+        letter-spacing: -0.3px;
+    }
+
+    .notes-page-head p {
+        margin: 4px 0 0;
+        font-size: 13px;
+        color: var(--ink-faint);
+    }
+
+    .notes-page-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .notes-search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        padding: 8px 16px;
+        background: #fff;
+        transition: border-color 0.15s;
+    }
+
+    .notes-search:focus-within { border-color: var(--accent); }
+    .notes-search svg { width: 17px; height: 17px; color: var(--ink-faint); flex: none; }
+
+    .notes-search input {
+        border: none;
+        outline: none;
+        font: inherit;
+        font-size: 13.5px;
+        width: 200px;
+        background: none;
+        color: inherit;
+    }
+
+    .notes-page-body {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 24px 32px 40px;
+    }
+
+    .notes-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 16px;
+        align-content: start;
+    }
+
+    .note-card {
+        background: var(--note);
+        border: 1px solid var(--note-line);
+        border-radius: 14px;
+        padding: 18px 20px;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        min-height: 150px;
+    }
+
+    .note-card .note-title { font-size: 14.5px; margin-bottom: 8px; }
+
+    .note-card .note-body {
+        flex: 1;
+        font-size: 13px;
+        display: -webkit-box;
+        -webkit-line-clamp: 7;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .note-card-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(0,0,0,0.07);
+        font-size: 11.5px;
+        color: #8a7a3f;
+    }
+
+    .note-card-src {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .notes-empty {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 70px 20px;
+        color: var(--ink-faint);
+        font-size: 14px;
+        line-height: 1.7;
+    }
+
+    @media (max-width: 700px) {
+        .notes-page-head { flex-direction: column; gap: 14px; }
+        .notes-search input { width: 100%; }
+        .notes-page-actions { width: 100%; }
+        .notes-search { flex: 1; }
+    }
 
     /* ---- Add source dialog ---- */
     #dlgSource {
@@ -1083,6 +1229,19 @@
 
             <div class="search-status" id="searchStatus"></div>
             <div id="sourceList"></div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-head">
+                    <h3>Notes</h3>
+                    <div class="sidebar-head-actions">
+                        <button class="link-btn" id="btnAllNotes">View all</button>
+                        <button class="icon-btn small" id="btnAddNote" title="Add note" aria-label="Add note">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div id="noteList"></div>
+            </div>
         </div>
     </section>
 
@@ -1111,8 +1270,8 @@
                 </div>
                 <p id="guideText">
                     Ask anything and the reply streams in live from your LiveContent assistant.
-                    Sources on the left group your conversations; save any answer to Notes on
-                    the right, then turn it into narrated audio with Audio Overview.
+                    Search the web or add documents from the left panel, save any answer to
+                    Notes below them, and turn an answer into narrated audio with Audio Overview.
                 </p>
             </div>
             <div id="messages"></div>
@@ -1165,30 +1324,30 @@
                 <div class="audio-out" id="audioOut"></div>
             </div>
 
-            <div class="studio-section">
-                <h3>Notes</h3>
-                <button class="icon-btn" id="btnAddNote" title="Add note" aria-label="Add note">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                </button>
-            </div>
-            <div id="noteList"></div>
         </div>
-
-        <nav class="studio-tabs">
-            <button class="studio-tab" data-view="audio">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
-                Audio
-            </button>
-            <button class="studio-tab active" data-view="notes">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h18v4H3V3zm0 6h12v4H3V9zm0 6h18v4H3v-4z"/></svg>
-                Notes
-            </button>
-            <button class="studio-tab" data-view="studio">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 3v6h2l-3 5-3-5h2V3H7l5-3 5 3h-4zM5 15h14v6H5v-6z"/></svg>
-                Studio
-            </button>
-        </nav>
     </section>
+</div>
+
+<!-- ============ ALL NOTES ============ -->
+<div class="notes-page" id="notesPage" hidden>
+    <header class="notes-page-head">
+        <div>
+            <h1>All notes</h1>
+            <p id="notesPageCount">No notes yet</p>
+        </div>
+        <div class="notes-page-actions">
+            <div class="notes-search">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                <input id="notesFilter" type="text" placeholder="Search notes" aria-label="Search notes">
+            </div>
+            <button class="icon-btn" id="btnNotesClose" title="Close" aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
+        </div>
+    </header>
+    <div class="notes-page-body">
+        <div class="notes-grid" id="notesGrid"></div>
+    </div>
 </div>
 
 <!-- ============ ADD SOURCE ============ -->
@@ -2006,6 +2165,81 @@
         if (e.dataTransfer && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
     });
 
+    // ---------- All notes page ----------
+    function renderNotesPage() {
+        const filter = $('notesFilter').value.trim().toLowerCase();
+        const shown = filter
+            ? notes.filter(n => (n.title + ' ' + n.body + ' ' + (n.convoTitle || ''))
+                                .toLowerCase().includes(filter))
+            : notes;
+
+        $('notesPageCount').textContent = notes.length
+            ? (filter ? shown.length + ' of ' + notes.length + ' notes'
+                      : notes.length + ' note' + (notes.length === 1 ? '' : 's'))
+            : 'No notes yet';
+
+        if (!shown.length) {
+            $('notesGrid').innerHTML = '<div class="notes-empty">' + (filter
+                ? 'No notes match &ldquo;' + escapeHtml(filter) + '&rdquo;.'
+                : 'No notes yet.<br>Save an answer with the + beside Notes.') + '</div>';
+            return;
+        }
+
+        $('notesGrid').innerHTML = shown.map(n => {
+            const when = n.at ? new Date(n.at).toLocaleDateString(undefined,
+                { month: 'short', day: 'numeric' }) : '';
+            return '<div class="note-card" data-id="' + n.id + '">' +
+                '<button class="note-del" title="Delete note" aria-label="Delete note">' +
+                    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>' +
+                '</button>' +
+                '<div class="note-title">' + escapeHtml(n.title) + '</div>' +
+                '<div class="note-body">' + escapeHtml(n.body) + '</div>' +
+                '<div class="note-card-foot">' +
+                    '<span class="note-card-src">' +
+                        (n.convoTitle ? escapeHtml(n.convoTitle) : 'No conversation') +
+                    '</span>' +
+                    '<span>' + when + '</span>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+    }
+
+    function openNotesPage() {
+        $('notesFilter').value = '';
+        renderNotesPage();
+        $('notesPage').hidden = false;
+        setTimeout(() => $('notesFilter').focus(), 50);
+    }
+
+    $('btnAllNotes').addEventListener('click', openNotesPage);
+    $('btnNotesClose').addEventListener('click', () => { $('notesPage').hidden = true; });
+    $('notesFilter').addEventListener('input', renderNotesPage);
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && !$('notesPage').hidden) $('notesPage').hidden = true;
+    });
+
+    // Clicking a note card's source jumps to that conversation.
+    $('notesGrid').addEventListener('click', e => {
+        if (e.target.closest('.note-del')) {
+            const id = e.target.closest('.note-card').dataset.id;
+            notes = notes.filter(n => n.id !== id);
+            writeJSON(NOTES, notes);
+            renderNotes();
+            renderNotesPage();
+            return;
+        }
+        const card = e.target.closest('.note-card');
+        if (!card) return;
+        const note = notes.find(n => n.id === card.dataset.id);
+        if (!note || !note.convoId) return;
+        if (!convos.some(c => c.id === note.convoId)) return;
+        activeId = note.convoId;
+        renderSources();
+        renderChat();
+        $('notesPage').hidden = true;
+    });
+
     // ---------- Web search ----------
     // The gateway exposes search to the agent as a tool, not over HTTP, so we
     // ask the agent to search and return JSON, then parse it.
@@ -2325,10 +2559,15 @@
         notes.unshift({
             id: uid(),
             title: last ? 'Saved response' : 'Note',
-            body: body.slice(0, 600),
+            body: body.slice(0, 2000),
+            // Remember where it came from so the all-notes view can show it.
+            convoId: c ? c.id : null,
+            convoTitle: c ? c.title : '',
+            at: Date.now(),
         });
         writeJSON(NOTES, notes);
         renderNotes();
+        if (!$('notesPage').hidden) renderNotesPage();
     });
 
     el.noteList.addEventListener('click', e => {
@@ -2338,13 +2577,7 @@
         notes = notes.filter(n => n.id !== id);
         writeJSON(NOTES, notes);
         renderNotes();
-    });
-
-    document.querySelectorAll('.studio-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            document.querySelectorAll('.studio-tab').forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-        });
+        if (!$('notesPage').hidden) renderNotesPage();
     });
 
     // ---------- Boot ----------
