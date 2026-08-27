@@ -276,43 +276,75 @@
         <div class="form-group">
             <label for="voiceSelect">Voice Selection</label>
             <select id="voiceSelect">
-                <!-- American English voices -->
-                <option value="af_bella" data-lang="en-us">Bella (Female - Warm)</option>
-                <option value="af_nicole" data-lang="en-us">Nicole (Female - Professional)</option>
-                <option value="af_sarah" data-lang="en-us">Sarah (Female - Clear)</option>
-                <option value="af_sky" data-lang="en-us">Sky (Female - Bright)</option>
-                <option value="am_adam" data-lang="en-us">Adam (Male - Deep)</option>
-                <option value="am_michael" data-lang="en-us">Michael (Male - Smooth)</option>
+                <optgroup label="American English \u2014 Female" data-lang="en-us">
+                    <option value="af_alloy" data-lang="en-us">Alloy (Female)</option>
+                    <option value="af_aoede" data-lang="en-us">Aoede (Female)</option>
+                    <option value="af_bella" data-lang="en-us">Bella (Female - Warm)</option>
+                    <option value="af_heart" data-lang="en-us">Heart (Female)</option>
+                    <option value="af_jessica" data-lang="en-us">Jessica (Female)</option>
+                    <option value="af_kore" data-lang="en-us">Kore (Female)</option>
+                    <option value="af_nicole" data-lang="en-us">Nicole (Female - Professional)</option>
+                    <option value="af_nova" data-lang="en-us">Nova (Female)</option>
+                    <option value="af_river" data-lang="en-us">River (Female)</option>
+                    <option value="af_sarah" data-lang="en-us">Sarah (Female - Clear)</option>
+                    <option value="af_sky" data-lang="en-us">Sky (Female - Bright)</option>
+                </optgroup>
 
-                <!-- British English voices -->
-                <option value="bf_emma" data-lang="en-gb">Emma (Female - Elegant)</option>
-                <option value="bf_isabella" data-lang="en-gb">Isabella (Female - Refined)</option>
-                <option value="bm_george" data-lang="en-gb">George (Male - Distinguished)</option>
-                <option value="bm_lewis" data-lang="en-gb">Lewis (Male - Sophisticated)</option>
+                <optgroup label="American English \u2014 Male" data-lang="en-us">
+                    <option value="am_adam" data-lang="en-us">Adam (Male - Deep)</option>
+                    <option value="am_echo" data-lang="en-us">Echo (Male)</option>
+                    <option value="am_eric" data-lang="en-us">Eric (Male)</option>
+                    <option value="am_fenrir" data-lang="en-us">Fenrir (Male)</option>
+                    <option value="am_liam" data-lang="en-us">Liam (Male)</option>
+                    <option value="am_michael" data-lang="en-us">Michael (Male - Smooth)</option>
+                    <option value="am_onyx" data-lang="en-us">Onyx (Male)</option>
+                    <option value="am_puck" data-lang="en-us">Puck (Male)</option>
+                </optgroup>
 
-                <!-- French voices -->
-                <option value="ff_siwis" data-lang="fr-fr">Siwis (Female)</option>
+                <optgroup label="British English \u2014 Female" data-lang="en-gb">
+                    <option value="bf_alice" data-lang="en-gb">Alice (Female)</option>
+                    <option value="bf_emma" data-lang="en-gb">Emma (Female - Elegant)</option>
+                    <option value="bf_isabella" data-lang="en-gb">Isabella (Female - Refined)</option>
+                    <option value="bf_lily" data-lang="en-gb">Lily (Female)</option>
+                </optgroup>
 
-                <!-- Italian voices -->
-                <option value="if_sara" data-lang="it">Sara (Female)</option>
-                <option value="im_nicola" data-lang="it">Nicola (Male)</option>
+                <optgroup label="British English \u2014 Male" data-lang="en-gb">
+                    <option value="bm_daniel" data-lang="en-gb">Daniel (Male)</option>
+                    <option value="bm_fable" data-lang="en-gb">Fable (Male)</option>
+                    <option value="bm_george" data-lang="en-gb">George (Male - Distinguished)</option>
+                    <option value="bm_lewis" data-lang="en-gb">Lewis (Male - Sophisticated)</option>
+                </optgroup>
 
-                <!-- Japanese voices -->
-                <option value="jf_alpha" data-lang="ja">Alpha (Female)</option>
-                <option value="jf_gongitsune" data-lang="ja">Gongitsune (Female)</option>
-                <option value="jf_nezumi" data-lang="ja">Nezumi (Female)</option>
-                <option value="jf_tebukuro" data-lang="ja">Tebukuro (Female)</option>
-                <option value="jm_kumo" data-lang="ja">Kumo (Male)</option>
+                <optgroup label="French" data-lang="fr-fr">
+                    <option value="ff_siwis" data-lang="fr-fr">Siwis (Female)</option>
+                </optgroup>
 
-                <!-- Chinese Mandarin voices -->
-                <option value="zf_xiaobei" data-lang="cmn">Xiaobei (Female)</option>
-                <option value="zf_xiaoni" data-lang="cmn">Xiaoni (Female)</option>
-                <option value="zf_xiaoxiao" data-lang="cmn">Xiaoxiao (Female)</option>
-                <option value="zf_xiaoyi" data-lang="cmn">Xiaoyi (Female)</option>
-                <option value="zm_yunjian" data-lang="cmn">Yunjian (Male)</option>
-                <option value="zm_yunxi" data-lang="cmn">Yunxi (Male)</option>
-                <option value="zm_yunxia" data-lang="cmn">Yunxia (Male)</option>
-                <option value="zm_yunyang" data-lang="cmn">Yunyang (Male)</option>
+                <optgroup label="Italian" data-lang="it">
+                    <option value="if_sara" data-lang="it">Sara (Female)</option>
+                    <option value="im_nicola" data-lang="it">Nicola (Male)</option>
+                </optgroup>
+
+                <optgroup label="Japanese" data-lang="ja">
+                    <option value="jf_alpha" data-lang="ja">Alpha (Female)</option>
+                    <option value="jf_gongitsune" data-lang="ja">Gongitsune (Female)</option>
+                    <option value="jf_nezumi" data-lang="ja">Nezumi (Female)</option>
+                    <option value="jf_tebukuro" data-lang="ja">Tebukuro (Female)</option>
+                    <option value="jm_kumo" data-lang="ja">Kumo (Male)</option>
+                </optgroup>
+
+                <optgroup label="Chinese (Mandarin) \u2014 Female" data-lang="cmn">
+                    <option value="zf_xiaobei" data-lang="cmn">Xiaobei (Female)</option>
+                    <option value="zf_xiaoni" data-lang="cmn">Xiaoni (Female)</option>
+                    <option value="zf_xiaoxiao" data-lang="cmn">Xiaoxiao (Female)</option>
+                    <option value="zf_xiaoyi" data-lang="cmn">Xiaoyi (Female)</option>
+                </optgroup>
+
+                <optgroup label="Chinese (Mandarin) \u2014 Male" data-lang="cmn">
+                    <option value="zm_yunjian" data-lang="cmn">Yunjian (Male)</option>
+                    <option value="zm_yunxi" data-lang="cmn">Yunxi (Male)</option>
+                    <option value="zm_yunxia" data-lang="cmn">Yunxia (Male)</option>
+                    <option value="zm_yunyang" data-lang="cmn">Yunyang (Male)</option>
+                </optgroup>
             </select>
         </div>
 
@@ -380,18 +412,21 @@
 
         // Filter voices based on selected language
         function filterVoicesByLanguage(selectedLang) {
-            const allOptions = voiceSelect.querySelectorAll('option');
             let firstVisibleOption = null;
 
-            allOptions.forEach(option => {
-                const voiceLang = option.getAttribute('data-lang');
-                if (voiceLang === selectedLang) {
-                    option.style.display = 'block';
-                    if (!firstVisibleOption) {
-                        firstVisibleOption = option;
-                    }
-                } else {
-                    option.style.display = 'none';
+            // Hide whole groups too, so empty group labels don't linger.
+            voiceSelect.querySelectorAll('optgroup').forEach(group => {
+                const matches = group.getAttribute('data-lang') === selectedLang;
+                group.hidden = !matches;
+                group.disabled = !matches;
+            });
+
+            voiceSelect.querySelectorAll('option').forEach(option => {
+                const matches = option.getAttribute('data-lang') === selectedLang;
+                option.hidden = !matches;
+                option.disabled = !matches;
+                if (matches && !firstVisibleOption) {
+                    firstVisibleOption = option;
                 }
             });
 
