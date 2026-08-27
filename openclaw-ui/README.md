@@ -53,6 +53,10 @@ No dependencies beyond the Python standard library.
 > Agent replies can take **minutes**. The send button turns into a red Stop
 > button while one is in flight, so a slow reply is cancellable rather than
 > looking frozen.
+>
+> If replies routinely take minutes, check the gateway log for
+> `Rate limit reached` — the configured model may be throttled, and the gateway
+> then retries down its fallback chain. That is a model/quota issue, not a UI one.
 
 ## Deploying
 

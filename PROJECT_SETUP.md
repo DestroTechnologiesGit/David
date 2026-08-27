@@ -396,10 +396,18 @@ The MP3 encoder is missing. Install `ffmpeg` or a `libsndfile` build with
 `libmp3lame`.
 
 **Chat replies take minutes**
-Not a UI bug — the gateway dispatches immediately and the agent is slow.
-Measured replies took 70 s and 261 s for a two-word answer. The send button
-becomes a red Stop button so a slow reply is cancellable. Worth investigating
-the agent's model and tool configuration separately.
+Not a UI bug. Check the gateway log (`/tmp/openclaw/openclaw-YYYY-MM-DD.log`)
+for `Rate limit reached` — if the configured model is throttled, the gateway
+retries down its fallback chain, and each attempt adds delay. Observed on this
+project: `openai/gpt-5.5-pro` hitting a tokens-per-minute cap turned a two-word
+answer into a 261-second wait. Fix by changing the default model, raising the
+provider quota, or reordering the fallback chain. The send button becomes a red
+Stop button so a slow reply stays cancellable.
+
+**Dev server prints a `ConnectionResetError` traceback**
+Fixed. Browsers open speculative keep-alive sockets and drop them without
+sending a request; `serve.py` now treats that as routine instead of an error.
+Genuine faults are still reported.
 
 **Audio streaming requires PortAudio**
 The CLI's `--stream` flag plays to a local speaker and is unusable on a

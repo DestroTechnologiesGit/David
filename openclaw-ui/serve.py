@@ -55,6 +55,11 @@ class Handler(BaseHTTPRequestHandler):
         for key in ("Authorization", "Content-Type", "Accept"):
             if self.headers.get(key):
                 headers[key] = self.headers[key]
+        # Pass through OpenClaw's own controls (model/agent/session overrides)
+        # rather than silently dropping them.
+        for key, value in self.headers.items():
+            if key.lower().startswith("x-openclaw-"):
+                headers[key] = value
         if payload is not None:
             headers["Content-Length"] = str(len(payload))
 
@@ -105,8 +110,29 @@ class Handler(BaseHTTPRequestHandler):
             return
         self.send_error_json(404, "Not found")
 
+    def handle_one_request(self) -> None:
+        # Browsers open speculative keep-alive sockets and drop them without
+        # sending anything. That is normal, not an error worth a traceback.
+        try:
+            super().handle_one_request()
+        except (ConnectionResetError, BrokenPipeError, TimeoutError):
+            self.close_connection = True
+
     def log_message(self, fmt: str, *args: object) -> None:
         print(f"  {fmt % args}", flush=True)
+
+
+class DevServer(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def handle_error(self, request, client_address) -> None:
+        # Only report real faults; a peer hanging up is routine.
+        import sys
+        import traceback
+        exc = sys.exception()
+        if isinstance(exc, (ConnectionResetError, BrokenPipeError, TimeoutError)):
+            return
+        traceback.print_exc()
 
 
 def main() -> None:
@@ -119,7 +145,7 @@ def main() -> None:
                     help="seconds to wait on the gateway (agent replies can be slow)")
     args = ap.parse_args()
 
-    httpd = ThreadingHTTPServer((args.host, args.port), Handler)
+    httpd = DevServer((args.host, args.port), Handler)
     httpd.gateway = args.gateway.rstrip("/")
     httpd.timeout_s = args.timeout
 
