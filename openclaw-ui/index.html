@@ -138,6 +138,204 @@
     .add-source:hover { background: #1765cc; }
     .add-source svg { width: 18px; height: 18px; }
 
+    .panel-search {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        padding: 4px 4px 4px 16px;
+        margin-bottom: 16px;
+        background: #fff;
+        transition: border-color 0.15s;
+    }
+
+    .panel-search:focus-within { border-color: var(--accent); }
+
+    .panel-search input {
+        flex: 1;
+        min-width: 0;
+        border: none;
+        outline: none;
+        font: inherit;
+        font-size: 13px;
+        padding: 7px 0;
+        background: none;
+        color: inherit;
+    }
+
+    .panel-go {
+        width: 30px;
+        height: 30px;
+        border: none;
+        border-radius: 50%;
+        background: #f1f3f4;
+        color: var(--ink-soft);
+        cursor: pointer;
+        flex: none;
+        display: grid;
+        place-items: center;
+        transition: background 0.15s, color 0.15s;
+    }
+
+    .panel-go:hover:not(:disabled) { background: var(--accent); color: #fff; }
+    .panel-go:disabled { opacity: 0.5; cursor: default; }
+    .panel-go svg { width: 15px; height: 15px; }
+
+    .search-status {
+        font-size: 12.5px;
+        color: var(--ink-faint);
+        line-height: 1.5;
+        margin-bottom: 12px;
+    }
+
+    .search-status:empty { margin: 0; }
+    .search-status.error { color: #c5221f; }
+
+    /* ---- Search results ---- */
+    .results {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 14px;
+        margin-bottom: 18px;
+        background: #f8f9fa;
+    }
+
+    .results[hidden] { display: none; }
+
+    .results-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+
+    .results-title {
+        font-size: 13.5px;
+        font-weight: 600;
+        color: var(--accent);
+    }
+
+    .results-x {
+        width: 24px;
+        height: 24px;
+        border: none;
+        border-radius: 50%;
+        background: none;
+        color: var(--ink-faint);
+        cursor: pointer;
+        flex: none;
+        display: grid;
+        place-items: center;
+    }
+
+    .results-x:hover { background: rgba(0,0,0,0.06); }
+    .results-x svg { width: 13px; height: 13px; }
+
+    .results-select {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 12px;
+        color: var(--ink-faint);
+        margin-bottom: 8px;
+    }
+
+    .link-btn {
+        border: none;
+        background: none;
+        padding: 0;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--accent);
+        cursor: pointer;
+    }
+
+    .link-btn:hover { text-decoration: underline; }
+    .link-btn.danger { color: var(--ink-faint); }
+    .link-btn.danger:hover { color: #c5221f; }
+
+    .result {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 9px 8px;
+        border-radius: 9px;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .result:hover { background: #fff; }
+
+    .result input {
+        width: 16px;
+        height: 16px;
+        margin-top: 2px;
+        flex: none;
+        cursor: pointer;
+        accent-color: var(--accent);
+    }
+
+    .result-text { min-width: 0; }
+
+    .result-title {
+        font-size: 12.8px;
+        font-weight: 500;
+        line-height: 1.4;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .result-snip {
+        font-size: 11.5px;
+        color: var(--ink-faint);
+        line-height: 1.45;
+        margin-top: 2px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .result-host {
+        font-size: 11px;
+        color: var(--accent);
+        margin-top: 3px;
+    }
+
+    .results-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+    }
+
+    .import-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 18px;
+        border: none;
+        border-radius: 18px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .import-btn:hover:not(:disabled) { background: #1765cc; }
+    .import-btn:disabled { background: #dadce0; cursor: default; }
+    .import-btn svg { width: 14px; height: 14px; }
+
     .source {
         display: flex;
         align-items: center;
@@ -851,6 +1049,39 @@
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
                 Add source
             </button>
+
+            <!-- Inline web search -->
+            <div class="panel-search">
+                <input id="panelQuery" type="text" placeholder="Search the web for new sources"
+                       autocomplete="off" aria-label="Search the web for new sources">
+                <button class="panel-go" id="btnPanelSearch" title="Search" aria-label="Search">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                </button>
+            </div>
+
+            <!-- Search results, shown after a search completes -->
+            <div class="results" id="results" hidden>
+                <div class="results-head">
+                    <div class="results-title" id="resultsTitle">Research completed</div>
+                    <button class="results-x" id="btnResultsClose" title="Dismiss" aria-label="Dismiss">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                    </button>
+                </div>
+                <div class="results-select">
+                    <button class="link-btn" id="btnSelectAll">Select all</button>
+                    <span id="resultsCount"></span>
+                </div>
+                <div id="resultList"></div>
+                <div class="results-foot">
+                    <button class="link-btn danger" id="btnResultsDiscard">Discard</button>
+                    <button class="import-btn" id="btnImport">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                        Import
+                    </button>
+                </div>
+            </div>
+
+            <div class="search-status" id="searchStatus"></div>
             <div id="sourceList"></div>
         </div>
     </section>
@@ -1184,7 +1415,12 @@
                 '</div>' +
                 '<div class="source-text">' +
                     '<div class="source-name">' + escapeHtml(c.title) + '</div>' +
-                    '<div class="source-meta">' + count + ' message' + (count === 1 ? '' : 's') + ' &middot; ' + when + '</div>' +
+                    '<div class="source-meta">' +
+                        (c.sources && c.sources.length
+                            ? c.sources.length + ' source' + (c.sources.length === 1 ? '' : 's') + ' &middot; '
+                            : '') +
+                        count + ' message' + (count === 1 ? '' : 's') + ' &middot; ' + when +
+                    '</div>' +
                 '</div>' +
             '</div>';
         }).join('');
@@ -1194,9 +1430,16 @@
         const c = activeConvo();
         el.chatTitle.textContent = c ? c.title : 'LiveContent Studio';
         const n = c ? c.messages.length : 0;
-        el.chatSub.textContent = c
-            ? n + ' message' + (n === 1 ? '' : 's') + ' in this conversation'
-            : 'No conversation selected';
+        if (!c) {
+            el.chatSub.textContent = 'No conversation selected';
+        } else if (c.sources && c.sources.length) {
+            el.chatSub.textContent = c.sources.length + ' source'
+                + (c.sources.length === 1 ? '' : 's') + ' \u00B7 '
+                + new Date(c.at).toLocaleDateString(undefined,
+                    { month: 'short', day: 'numeric', year: 'numeric' });
+        } else {
+            el.chatSub.textContent = n + ' message' + (n === 1 ? '' : 's') + ' in this conversation';
+        }
 
         if (!c || !c.messages.length) {
             el.messages.innerHTML = '';
@@ -1204,7 +1447,8 @@
         }
         el.messages.innerHTML = c.messages.map(m =>
             '<div class="msg ' + m.role + '"><div class="bubble">' +
-            (m.role === 'assistant' ? renderMarkdown(m.content) : escapeHtml(m.content)) +
+            (m.role === 'assistant' ? renderMarkdown(m.content)
+                                    : escapeHtml(m.display || m.content)) +
             '</div></div>'
         ).join('');
         scrollDown();
@@ -1237,16 +1481,21 @@
         return base + path;
     }
 
-    async function send(text) {
+    async function send(text, options) {
         if (streaming) return;
         if (!state.token) { openSettings('Add your access token to start chatting.'); return; }
 
+        const opts = options || {};
         let c = activeConvo() || newConvo();
-        if (c.messages.length === 0) {
+        if (c.messages.length === 0 && !opts.keepTitle) {
             // Name the conversation after its opening question.
             c.title = text.length > 42 ? text.slice(0, 42).trim() + '...' : text;
         }
-        c.messages.push({ role: 'user', content: text });
+        // `display` keeps a long machine-written prompt out of the transcript
+        // while the agent still receives the full text.
+        c.messages.push(opts.display
+            ? { role: 'user', content: text, display: opts.display }
+            : { role: 'user', content: text });
         c.at = Date.now();
         writeJSON(CONVOS, convos);
         renderSources();
@@ -1757,7 +2006,195 @@
         if (e.dataTransfer && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
     });
 
+    // ---------- Web search ----------
+    // The gateway exposes search to the agent as a tool, not over HTTP, so we
+    // ask the agent to search and return JSON, then parse it.
+    let lastResults = [];
+    let lastQuery = '';
+
+    const elResults = $('results');
+    const elResultList = $('resultList');
+    const elSearchStatus = $('searchStatus');
+
+    function setSearchStatus(text, kind) {
+        elSearchStatus.textContent = text;
+        elSearchStatus.className = 'search-status' + (kind ? ' ' + kind : '');
+    }
+
+    function hostOf(url) {
+        try { return new URL(url).hostname.replace(/^www\./, ''); }
+        catch (e) { return ''; }
+    }
+
+    // Pull a JSON array out of a reply that may wrap it in prose or a fence.
+    function parseResults(text) {
+        const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+        const candidates = [];
+        if (fenced) candidates.push(fenced[1]);
+        const bare = text.match(/\[[\s\S]*\]/);
+        if (bare) candidates.push(bare[0]);
+        candidates.push(text);
+
+        for (const candidate of candidates) {
+            try {
+                const parsed = JSON.parse(candidate.trim());
+                if (Array.isArray(parsed) && parsed.length) {
+                    return parsed
+                        .filter(r => r && (r.url || r.link))
+                        .map(r => ({
+                            title: String(r.title || r.name || r.url || 'Untitled').slice(0, 200),
+                            url: String(r.url || r.link),
+                            snippet: String(r.snippet || r.description || r.summary || '').slice(0, 400),
+                        }));
+                }
+            } catch (e) { /* try the next candidate */ }
+        }
+        return [];
+    }
+
+    function renderResults() {
+        elResultList.innerHTML = lastResults.map((r, i) =>
+            '<label class="result">' +
+                '<input type="checkbox" data-i="' + i + '"' + (r.checked ? ' checked' : '') + '>' +
+                '<div class="result-text">' +
+                    '<div class="result-title">' + escapeHtml(r.title) + '</div>' +
+                    (r.snippet ? '<div class="result-snip">' + escapeHtml(r.snippet) + '</div>' : '') +
+                    '<div class="result-host">' + escapeHtml(hostOf(r.url)) + '</div>' +
+                '</div>' +
+            '</label>'
+        ).join('');
+        updateImportCount();
+    }
+
+    function updateImportCount() {
+        const n = lastResults.filter(r => r.checked).length;
+        $('resultsCount').textContent = n + ' of ' + lastResults.length + ' selected';
+        $('btnImport').disabled = n === 0;
+        $('btnImport').innerHTML =
+            '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>'
+            + 'Import' + (n ? ' ' + n : '');
+    }
+
+    async function runSearch(query) {
+        if (!state.token) { openSettings('Add your access token to search.'); return; }
+        lastQuery = query;
+        elResults.hidden = true;
+        $('btnPanelSearch').disabled = true;
+        setSearchStatus('Searching the web for "' + query + '"...');
+
+        const prompt =
+            'Use your web_search tool to find sources about: ' + query + '\n\n'
+            + 'Reply with ONLY a JSON array, no prose and no code fence. Each item must be '
+            + '{"title": "...", "url": "https://...", "snippet": "one sentence"}. '
+            + 'Return up to 10 real results with real URLs from the search tool. '
+            + 'If the search tool is unavailable, reply with exactly: NO_SEARCH';
+
+        try {
+            const reply = await askAgent(prompt);
+            if (/^\s*NO_SEARCH\s*$/.test(reply)) {
+                throw new Error('The assistant has no web search available. '
+                              + 'A search provider needs to be configured on the server.');
+            }
+            const found = parseResults(reply);
+            if (!found.length) {
+                throw new Error('No results could be read from the reply. Try a different wording.');
+            }
+            lastResults = found.map(r => Object.assign({}, r, { checked: true }));
+            $('resultsTitle').textContent = 'Found ' + found.length + ' source'
+                                          + (found.length === 1 ? '' : 's');
+            renderResults();
+            elResults.hidden = false;
+            setSearchStatus('');
+        } catch (err) {
+            setSearchStatus(err.message, 'error');
+        } finally {
+            $('btnPanelSearch').disabled = false;
+        }
+    }
+
+    // One-shot agent call that returns the whole reply as a string.
+    async function askAgent(prompt) {
+        const res = await fetch(apiUrl('/v1/chat/completions'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + state.token,
+            },
+            body: JSON.stringify({
+                model: state.model || 'openclaw/default',
+                messages: [{ role: 'user', content: prompt }],
+            }),
+        });
+        if (!res.ok) {
+            const detail = (await res.text()).slice(0, 200);
+            throw new Error('Server returned ' + res.status + '. ' + detail);
+        }
+        const json = await res.json();
+        const content = json.choices && json.choices[0] && json.choices[0].message
+                      && json.choices[0].message.content;
+        if (!content) throw new Error('The assistant returned an empty reply.');
+        return content;
+    }
+
+    // Import the ticked results as a conversation, then summarise them.
+    async function importSelected() {
+        const picked = lastResults.filter(r => r.checked);
+        if (!picked.length) return;
+
+        const c = newConvo(lastQuery.length > 42 ? lastQuery.slice(0, 42).trim() + '...' : lastQuery);
+        c.sources = picked.map(r => ({ title: r.title, url: r.url, snippet: r.snippet }));
+        writeJSON(CONVOS, convos);
+
+        elResults.hidden = true;
+        lastResults = [];
+        renderSources();
+        renderChat();
+        setSearchStatus('Imported ' + picked.length + ' source'
+                      + (picked.length === 1 ? '' : 's') + '. Summarising...');
+
+        // Ask for an overview, which becomes the conversation's first exchange.
+        const list = picked.map(r => '- ' + r.title + ' (' + r.url + ')'
+                                   + (r.snippet ? ': ' + r.snippet : '')).join('\n');
+        const ask = 'I have gathered these sources about "' + lastQuery + '":\n\n' + list
+                  + '\n\nWrite a short overview of what they collectively cover. '
+                  + 'I will ask follow-up questions about them.';
+        setSearchStatus('');
+        send(ask, { keepTitle: true, display: 'Summarise these ' + picked.length + ' sources about ' + lastQuery + '.' });
+    }
+
+    $('btnPanelSearch').addEventListener('click', () => {
+        const q = $('panelQuery').value.trim();
+        if (!q) { setSearchStatus('Enter something to search for.', 'error'); return; }
+        runSearch(q);
+    });
+
+    $('panelQuery').addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); $('btnPanelSearch').click(); }
+    });
+
+    elResultList.addEventListener('change', e => {
+        const box = e.target.closest('input[type=checkbox]');
+        if (!box) return;
+        lastResults[Number(box.dataset.i)].checked = box.checked;
+        updateImportCount();
+    });
+
+    $('btnSelectAll').addEventListener('click', () => {
+        const allOn = lastResults.every(r => r.checked);
+        lastResults.forEach(r => { r.checked = !allOn; });
+        renderResults();
+    });
+
+    $('btnImport').addEventListener('click', importSelected);
+    $('btnResultsClose').addEventListener('click', () => { elResults.hidden = true; });
+    $('btnResultsDiscard').addEventListener('click', () => {
+        elResults.hidden = true;
+        lastResults = [];
+        setSearchStatus('');
+    });
+
     // ---------- Settings dialog ----------
+
     function openSettings(message) {
         $('inpBase').value = state.base;
         $('inpToken').value = state.token;

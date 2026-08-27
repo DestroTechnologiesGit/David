@@ -183,9 +183,10 @@ UI, which stays at `/`.
   picker. Text is extracted in the browser and seeded as context; files are
   never uploaded anywhere.
 - **pasted text**
-- a **research topic** — handed to the agent, which uses whatever tools it has
-  configured. There is no separate search backend; the gateway exposes search
-  to agents as a tool, not over HTTP.
+- a **research topic** — handed to the agent, which uses its `web_search` tool.
+  There is no separate search backend; the gateway exposes search to agents as
+  a tool, not over HTTP, so the UI asks the agent and parses the JSON it
+  returns.
 - a **blank conversation**
 
 ### 2.1 Enable the chat endpoint
@@ -224,7 +225,31 @@ cp openclaw-ui/index.html /home/ubuntu/openclaw-ui/
 
 `serve.py` is for local development only and is not needed on the server.
 
-### 2.3 Configure in the browser
+### 2.3 Enable web search
+
+Search is off until a provider is set. **DuckDuckGo needs no API key** and is
+what this project uses:
+
+```json5
+{
+  tools: {
+    web: {
+      search: { provider: "duckduckgo" }
+    }
+  }
+}
+```
+
+> OpenClaw's docs call DuckDuckGo **experimental** — it scrapes DDG's HTML and
+> can break on bot-challenge pages. For production, a keyed provider (Brave,
+> Exa, Perplexity) is more reliable; see `docs/tools/web.md` in the openclaw
+> package.
+
+The **Sources** panel then has a search box: type a topic, review the results
+with checkboxes, and select **Import**. Imported sources become a conversation,
+and the assistant writes an overview you can ask follow-up questions about.
+
+### 2.4 Configure in the browser
 
 The settings dialog opens on first visit:
 
