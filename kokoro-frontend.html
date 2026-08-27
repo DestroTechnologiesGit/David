@@ -478,6 +478,14 @@
             </div>
 
             <div class="form-group">
+                <label for="formatSelect">Output Format</label>
+                <select id="formatSelect">
+                    <option value="wav">WAV &mdash; uncompressed, best quality</option>
+                    <option value="mp3">MP3 &mdash; smaller file, easy to share</option>
+                </select>
+            </div>
+
+            <div class="form-group">
                 <label for="musicFile">Background Music (optional: MP3, WAV, OGG)</label>
                 <input type="file" id="musicFile" accept="audio/*">
             </div>
@@ -503,6 +511,14 @@
             <div class="mode-note">
                 <strong>Stream</strong> starts playing as soon as the first few words are ready,
                 instead of waiting for the whole narration. Best for long text and quick previews.
+            </div>
+
+            <div class="form-group">
+                <label for="streamFormatSelect">Stream Format</label>
+                <select id="streamFormatSelect">
+                    <option value="wav">WAV &mdash; gapless playback (recommended)</option>
+                    <option value="mp3">MP3 &mdash; smaller file, slight gaps between parts</option>
+                </select>
             </div>
 
             <div class="mode-note subtle">
@@ -531,7 +547,7 @@
         <div class="audio-preview" id="audioPreview">
             <label>Preview & Download</label>
             <audio id="audioPlayer" controls></audio>
-            <button class="button" id="downloadBtn" style="margin-top: 10px;">Download WAV</button>
+            <button class="button" id="downloadBtn" style="margin-top: 10px;">Download</button>
         </div>
     </div>
 
@@ -542,6 +558,8 @@
         const voiceSelect = document.getElementById('voiceSelect');
         const textInput = document.getElementById('textInput');
         const musicFile = document.getElementById('musicFile');
+        const formatSelect = document.getElementById('formatSelect');
+        const streamFormatSelect = document.getElementById('streamFormatSelect');
         const documentFile = document.getElementById('documentFile');
         const documentInfo = document.getElementById('documentInfo');
         const charCount = document.getElementById('charCount');
@@ -562,6 +580,7 @@
         const downloadBtn = document.getElementById('downloadBtn');
 
         let finalAudioBlob = null;
+        let finalAudioExt = 'wav';
 
         // Seconds of music fade-out at the end of the narration.
         const MUSIC_FADE_OUT_SECONDS = 2;
@@ -968,7 +987,7 @@
         }
 
         // Generate TTS audio from Kokoro API
-        async function generateTTS(text, voice, language, token) {
+        async function generateTTS(text, voice, language, token, format) {
             const response = await fetch('/kokoro/api/tts', {
                 method: 'POST',
                 headers: {
@@ -979,7 +998,8 @@
                     text: text,
                     voice: voice,
                     language: language,
-                    speed: 1.0
+                    speed: 1.0,
+                    format: format || 'wav'
                 })
             });
 
@@ -1043,17 +1063,93 @@
             return null;   // header not complete yet
         }
 
+        // Play a compressed stream (MP3) while it downloads, using MediaSource.
+        // Falls back to buffering the whole response if MSE is unavailable.
+        async function streamCompressed(response, onProgress) {
+            const chunks = [];
+            const collect = async () => {
+                const reader = response.body.getReader();
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                }
+            };
+
+            const supported = typeof MediaSource !== 'undefined' &&
+                MediaSource.isTypeSupported('audio/mpeg');
+
+            if (!supported) {
+                // No live playback, but the audio still arrives and plays after.
+                await collect();
+                const blob = new Blob(chunks, { type: 'audio/mpeg' });
+                onProgress && onProgress('complete');
+                return { blob, duration: 0, stop: () => {} };
+            }
+
+            const media = new MediaSource();
+            const audio = new Audio();
+            audio.src = URL.createObjectURL(media);
+
+            await new Promise(resolve => media.addEventListener('sourceopen', resolve, { once: true }));
+            const buffer = media.addSourceBuffer('audio/mpeg');
+
+            const queue = [];
+            let ended = false;
+            const pump = () => {
+                if (buffer.updating || !queue.length) return;
+                buffer.appendBuffer(queue.shift());
+            };
+            buffer.addEventListener('updateend', () => {
+                pump();
+                if (ended && !buffer.updating && !queue.length && media.readyState === 'open') {
+                    media.endOfStream();
+                }
+            });
+
+            let started = false;
+            const reader = response.body.getReader();
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                chunks.push(value);
+                queue.push(value);
+                pump();
+                if (!started) {
+                    started = true;
+                    // Autoplay can be blocked; the preview player below still works.
+                    audio.play().catch(() => {});
+                    onProgress && onProgress('playing');
+                }
+            }
+
+            ended = true;
+            pump();
+            if (!buffer.updating && !queue.length && media.readyState === 'open') {
+                try { media.endOfStream(); } catch (e) { /* already ended */ }
+            }
+            onProgress && onProgress('complete');
+
+            const blob = new Blob(chunks, { type: 'audio/mpeg' });
+            return {
+                blob,
+                duration: isFinite(audio.duration) ? audio.duration : 0,
+                stop: () => { try { audio.pause(); } catch (e) {} },
+            };
+        }
+
         // Stream speech and play it while the server is still generating.
         // The response is one long WAV whose header declares a placeholder
         // length, so MediaSource is fed the bytes as they arrive.
-        async function streamTTS(text, voice, language, token, onProgress) {
+        async function streamTTS(text, voice, language, token, onProgress, format) {
+            const wanted = format || 'wav';
             const response = await fetch('/kokoro/api/tts/stream', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Kokoro-Key': token,
                 },
-                body: JSON.stringify({ text, voice, language, speed: 1.0 })
+                body: JSON.stringify({ text, voice, language, speed: 1.0, format: wanted })
             });
 
             if (!response.ok) {
@@ -1061,6 +1157,13 @@
                 throw new Error(`TTS API request failed: ${response.status} - ${errorText}`);
             }
             if (!response.body) throw new Error('This browser cannot read streaming responses.');
+
+            // MP3 arrives as self-describing frames: hand them to MediaSource
+            // and let the browser decode, rather than parsing PCM by hand.
+            const contentType = (response.headers.get('Content-Type') || '').toLowerCase();
+            if (contentType.includes('mpeg') || contentType.includes('mp3')) {
+                return streamCompressed(response, onProgress);
+            }
 
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
             const reader = response.body.getReader();
@@ -1278,6 +1381,7 @@
             const language = languageSelect.value;
             // Music only applies to the Generate tab; streaming has no mixing step.
             const music = activeMode === 'stream' ? null : musicFile.files[0];
+            const outputFormat = formatSelect.value;
 
             // Validation
             if (!text) {
@@ -1301,16 +1405,20 @@
                     showStatus('Connecting to Kokoro TTS...', 'info');
                     updateProgress(20);
 
+                    const streamFormat = streamFormatSelect.value;
                     const result = await streamTTS(text, voice, language, token, (phase) => {
                         if (phase === 'playing') {
                             showStatus('Playing while the rest is generated...', 'info');
                             updateProgress(60);
                         }
-                    });
+                    }, streamFormat);
 
                     finalAudioBlob = result.blob;
+                    finalAudioExt = streamFormat;
                     updateProgress(100);
-                    showStatus(`Finished streaming ${result.duration.toFixed(1)} seconds of audio.`, 'success');
+                    showStatus(result.duration
+                        ? `Finished streaming ${result.duration.toFixed(1)} seconds of audio.`
+                        : 'Finished streaming.', 'success');
 
                     // Offer the finished audio for replay and download.
                     audioPlayer.src = URL.createObjectURL(finalAudioBlob);
@@ -1321,7 +1429,7 @@
                 // Step 1: Generate TTS
                 showStatus('Generating speech with Kokoro TTS...', 'info');
                 updateProgress(25);
-                const voiceBlob = await generateTTS(text, voice, language, token);
+                const voiceBlob = await generateTTS(text, voice, language, token, outputFormat);
 
                 // Step 2: Load music
                 showStatus('Loading background music...', 'info');
@@ -1335,10 +1443,14 @@
                 const musicVol = musicVolume.value / 100;
 
                 if (music) {
+                    // Mixing decodes both inputs and re-encodes as WAV, so the
+                    // result is WAV even when MP3 was requested.
                     const mixedBuffer = await mixAudio(voiceBlob, music, voiceVol, musicVol);
                     finalAudioBlob = audioBufferToWav(mixedBuffer);
+                    finalAudioExt = 'wav';
                 } else {
                     finalAudioBlob = voiceBlob;
+                    finalAudioExt = outputFormat;
                 }
 
                 // Step 4: Convert to WAV
@@ -1347,7 +1459,9 @@
 
                 // Step 5: Display result
                 updateProgress(100);
-                showStatus('Audio generated successfully!', 'success');
+                showStatus(music && outputFormat === 'mp3'
+                    ? 'Audio generated. Mixed with music, so it is saved as WAV.'
+                    : `Audio generated successfully (${finalAudioExt.toUpperCase()}).`, 'success');
 
                 const audioUrl = URL.createObjectURL(finalAudioBlob);
                 audioPlayer.src = audioUrl;
@@ -1367,7 +1481,7 @@
                 const url = URL.createObjectURL(finalAudioBlob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'narration_with_music.wav';
+                a.download = 'narration.' + finalAudioExt;
                 a.click();
                 URL.revokeObjectURL(url);
             }

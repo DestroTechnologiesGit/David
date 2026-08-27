@@ -39,6 +39,7 @@ OPENCLAW_CONFIG = Path(os.environ.get("OPENCLAW_CONFIG", "/home/ubuntu/.openclaw
 KOKORO = os.environ.get("KOKORO_BIN", "/home/ubuntu/.local/bin/kokoro-tts")
 # How long to wait for the CLI to produce the next chunk before giving up.
 STREAM_CHUNK_TIMEOUT = float(os.environ.get("KOKORO_STREAM_CHUNK_TIMEOUT", "180"))
+CONTENT_TYPES = {"wav": "audio/wav", "mp3": "audio/mpeg"}
 SYNTHESIS_LOCK = threading.Lock()
 
 
@@ -99,8 +100,58 @@ def wav_header(fmt: dict, data_size: int) -> bytes:
     )
 
 
+MPEG_BITRATES_V1_L3 = (0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0)
+MPEG_BITRATES_V2_L3 = (0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0)
+MPEG_RATES = {0: (11025, 12000, 8000), 2: (22050, 24000, 16000), 3: (44100, 48000, 32000)}
+
+
+def mpeg_frame_length(header: bytes) -> int:
+    """Byte length of the MPEG audio frame described by a 4-byte header."""
+    if len(header) < 4 or header[0] != 0xFF or (header[1] & 0xE0) != 0xE0:
+        return 0
+    version = (header[1] >> 3) & 0x03      # 3 = MPEG1, 2 = MPEG2, 0 = MPEG2.5
+    layer = (header[1] >> 1) & 0x03        # 1 = Layer III
+    bitrate_index = (header[2] >> 4) & 0x0F
+    rate_index = (header[2] >> 2) & 0x03
+    padding = (header[2] >> 1) & 0x01
+    if layer != 1 or version == 1 or bitrate_index in (0, 15) or rate_index == 3:
+        return 0
+    table = MPEG_BITRATES_V1_L3 if version == 3 else MPEG_BITRATES_V2_L3
+    bitrate = table[bitrate_index] * 1000
+    sample_rate = MPEG_RATES[version][rate_index]
+    if not bitrate or not sample_rate:
+        return 0
+    samples = 1152 if version == 3 else 576
+    return int(samples // 8 * bitrate // sample_rate) + padding
+
+
+def strip_mp3_metadata(data: bytes, drop_id3: bool = True) -> bytes:
+    """Remove an ID3v2 tag and any leading Xing/Info header frame.
+
+    Encoders put a Xing/Info frame at the start of every file. It carries no
+    audio, but a decoder plays it as a short silence, so leaving one at the
+    head of each concatenated chunk inserts gaps and glitches between chunks.
+    """
+    offset = 0
+    if drop_id3 and len(data) >= 10 and data[:3] == b"ID3":
+        # Size is 4 syncsafe bytes: 7 bits each.
+        size = 0
+        for byte in data[6:10]:
+            size = (size << 7) | (byte & 0x7F)
+        offset = 10 + size
+
+    # Skip a leading Xing/Info frame if the first frame is one.
+    length = mpeg_frame_length(data[offset:offset + 4])
+    if length:
+        frame = data[offset:offset + length]
+        if b"Xing" in frame[:48] or b"Info" in frame[:48]:
+            offset += length
+
+    return data[offset:]
+
+
 def chunk_sort_key(path: Path) -> tuple:
-    """Order chunk_001.wav, chunk_002.wav ... numerically, not lexically."""
+    """Order chunk_001, chunk_002 ... numerically, not lexically."""
     match = re.search(r"(\d+)", path.stem)
     return (int(match.group(1)) if match else 0, path.name)
 
@@ -156,6 +207,9 @@ class Handler(BaseHTTPRequestHandler):
             voice = str(payload.get("voice", "af_sarah"))
             language = str(payload.get("language", "en-us"))
             speed = float(payload.get("speed", 1.0))
+            audio_format = str(payload.get("format", "wav")).lower()
+            if audio_format not in ("wav", "mp3"):
+                raise ValueError("Format must be either 'wav' or 'mp3'")
             if not text or len(text) > max_text:
                 raise ValueError(f"Text must contain 1-{max_text} characters")
             if not 0.5 <= speed <= 2.0:
@@ -165,17 +219,18 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if streaming:
-            self.stream_synthesis(text, voice, language, speed)
+            self.stream_synthesis(text, voice, language, speed, audio_format)
             return
 
         try:
             with SYNTHESIS_LOCK, tempfile.TemporaryDirectory(prefix="kokoro-web-") as tmp:
                 input_path = Path(tmp) / "input.txt"
-                output_path = Path(tmp) / "speech.wav"
+                output_path = Path(tmp) / f"speech.{audio_format}"
                 input_path.write_text(text, encoding="utf-8")
                 result = subprocess.run(
                     [KOKORO, str(input_path), str(output_path), "--lang", language,
-                     "--voice", voice, "--speed", str(speed)],
+                     "--voice", voice, "--speed", str(speed),
+                     "--format", audio_format],
                     cwd=tmp,
                     capture_output=True,
                     text=True,
@@ -185,16 +240,17 @@ class Handler(BaseHTTPRequestHandler):
                     detail = (result.stderr or result.stdout or "Synthesis failed")[-1000:]
                     raise RuntimeError(detail)
                 audio = output_path.read_bytes()
-            self.send_bytes(200, audio, "audio/wav")
+            self.send_bytes(200, audio, CONTENT_TYPES[audio_format])
         except subprocess.TimeoutExpired:
             self.send_json_error(504, "Speech generation timed out")
         except Exception as exc:
             self.send_json_error(500, f"Speech generation failed: {exc}")
 
-    def stream_synthesis(self, text: str, voice: str, language: str, speed: float) -> None:
+    def stream_synthesis(self, text: str, voice: str, language: str, speed: float,
+                         audio_format: str = "wav") -> None:
         """Synthesise with --split-output and forward each chunk as it lands.
 
-        The CLI writes chunk_001.wav, chunk_002.wav ... into a chapter directory
+        The CLI writes chunk_001, chunk_002 ... into a chapter directory
         as it works. Watching that directory lets playback start on the first
         chunk instead of waiting for the whole document. Each chunk is a
         complete WAV, so headers are stripped and only PCM frames are appended
@@ -214,7 +270,7 @@ class Handler(BaseHTTPRequestHandler):
 
                 process = subprocess.Popen(
                     [KOKORO, str(input_path), "--split-output", str(output_dir),
-                     "--format", "wav", "--lang", language, "--voice", voice,
+                     "--format", audio_format, "--lang", language, "--voice", voice,
                      "--speed", str(speed)],
                     cwd=tmp,
                     stdout=subprocess.PIPE,
@@ -226,7 +282,8 @@ class Handler(BaseHTTPRequestHandler):
                 while True:
                     ready = []
                     if output_dir.is_dir():
-                        for path in sorted(output_dir.rglob("chunk_*.wav"), key=chunk_sort_key):
+                        for path in sorted(output_dir.rglob(f"chunk_*.{audio_format}"),
+                                           key=chunk_sort_key):
                             if path.name in sent_files:
                                 continue
                             # A chunk still being written has no final size yet;
@@ -240,8 +297,28 @@ class Handler(BaseHTTPRequestHandler):
                             ready.append(path)
 
                     for path in ready:
+                        raw = path.read_bytes()
+
+                        if audio_format == "mp3":
+                            # MP3 frames are self-describing, so chunks can be
+                            # concatenated as-is with no header surgery.
+                            if not raw:
+                                sent_files.add(path.name)
+                                continue
+                            if not headers_sent:
+                                self.begin_stream("audio/mpeg")
+                                headers_sent = True
+                            # Strip the Xing/Info header frame from every chunk,
+                            # and the ID3 tag from all but the first, so the
+                            # result is one continuous run of audio frames.
+                            self.write_chunked(
+                                strip_mp3_metadata(raw, drop_id3=bool(sent_files)))
+                            sent_files.add(path.name)
+                            last_progress = time.monotonic()
+                            continue
+
                         try:
-                            chunk_fmt, frames = parse_wav(path.read_bytes())
+                            chunk_fmt, frames = parse_wav(raw)
                         except ValueError:
                             continue
                         if not frames:
@@ -250,12 +327,7 @@ class Handler(BaseHTTPRequestHandler):
 
                         if not headers_sent:
                             fmt = chunk_fmt
-                            self.send_response(200)
-                            self.send_header("Content-Type", "audio/wav")
-                            self.send_header("Cache-Control", "no-store")
-                            self.send_header("X-Content-Type-Options", "nosniff")
-                            self.send_header("Transfer-Encoding", "chunked")
-                            self.end_headers()
+                            self.begin_stream("audio/wav")
                             # Streaming length is unknown up front, so declare the
                             # maximum; players read until the connection closes.
                             self.write_chunked(wav_header(fmt, 0xFFFFFFFF - 36))
@@ -273,7 +345,8 @@ class Handler(BaseHTTPRequestHandler):
 
                     if process.poll() is not None:
                         # Drain whatever the final pass produced, then stop.
-                        if not ready and not self.pending_chunks(output_dir, sent_files):
+                        if not ready and not self.pending_chunks(
+                                output_dir, sent_files, f"chunk_*.{audio_format}"):
                             break
                     elif time.monotonic() - last_progress > STREAM_CHUNK_TIMEOUT:
                         raise TimeoutError("Timed out waiting for the next audio chunk")
@@ -314,11 +387,20 @@ class Handler(BaseHTTPRequestHandler):
             shutil.rmtree(tmp, ignore_errors=True)
 
     @staticmethod
-    def pending_chunks(output_dir: Path, sent_files: set[str]) -> bool:
+    def pending_chunks(output_dir: Path, sent_files: set[str], pattern: str = "chunk_*.wav") -> bool:
         """True when the CLI left chunk files we have not forwarded yet."""
         if not output_dir.is_dir():
             return False
-        return any(p.name not in sent_files for p in output_dir.rglob("chunk_*.wav"))
+        return any(p.name not in sent_files for p in output_dir.rglob(pattern))
+
+    def begin_stream(self, content_type: str) -> None:
+        """Open a chunked streaming response."""
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Transfer-Encoding", "chunked")
+        self.end_headers()
 
     def write_chunked(self, payload: bytes) -> None:
         """Write one HTTP chunked-transfer frame."""
