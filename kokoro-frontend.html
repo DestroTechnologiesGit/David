@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kokoro TTS with Background Music</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 120px;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px dashed #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        input[type="file"]:hover {
+            border-color: #667eea;
+        }
+
+        .slider-group {
+            margin-bottom: 20px;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: #e0e0e0;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+        }
+
+        .slider-value {
+            min-width: 50px;
+            text-align: right;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .button:active {
+            transform: translateY(0);
+        }
+
+        .button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .status.info {
+            background: #e3f2fd;
+            color: #1976d2;
+            border-left: 4px solid #1976d2;
+        }
+
+        .status.success {
+            background: #e8f5e9;
+            color: #388e3c;
+            border-left: 4px solid #388e3c;
+        }
+
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+            border-left: 4px solid #c62828;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .audio-preview {
+            margin-top: 20px;
+            display: none;
+        }
+
+        audio {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .info-box {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .info-box strong {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎙️ Kokoro TTS with Background Music</h1>
+        <p class="subtitle">Create narrated audio with background music mixing</p>
+
+        <div class="info-box">
+            <strong>Private server:</strong> Generate speech with the locally installed Kokoro model. Background music is optional and is mixed in your browser.
+        </div>
+
+        <div class="form-group">
+            <label for="apiToken">API Access Token</label>
+            <input type="password" id="apiToken" placeholder="Paste your OpenClaw gateway token"
+                   autocomplete="current-password"
+                   style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
+        </div>
+
+        <div class="form-group">
+            <label for="languageSelect">Language</label>
+            <select id="languageSelect">
+                <option value="en-us">English (American)</option>
+                <option value="en-gb">English (British)</option>
+                <option value="fr-fr">French</option>
+                <option value="it">Italian</option>
+                <option value="ja">Japanese</option>
+                <option value="cmn">Chinese (Mandarin)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="voiceSelect">Voice Selection</label>
+            <select id="voiceSelect">
+                <!-- American English voices -->
+                <option value="af_bella" data-lang="en-us">Bella (Female - Warm)</option>
+                <option value="af_nicole" data-lang="en-us">Nicole (Female - Professional)</option>
+                <option value="af_sarah" data-lang="en-us">Sarah (Female - Clear)</option>
+                <option value="af_sky" data-lang="en-us">Sky (Female - Bright)</option>
+                <option value="am_adam" data-lang="en-us">Adam (Male - Deep)</option>
+                <option value="am_michael" data-lang="en-us">Michael (Male - Smooth)</option>
+
+                <!-- British English voices -->
+                <option value="bf_emma" data-lang="en-gb">Emma (Female - Elegant)</option>
+                <option value="bf_isabella" data-lang="en-gb">Isabella (Female - Refined)</option>
+                <option value="bm_george" data-lang="en-gb">George (Male - Distinguished)</option>
+                <option value="bm_lewis" data-lang="en-gb">Lewis (Male - Sophisticated)</option>
+
+                <!-- French voices -->
+                <option value="ff_siwis" data-lang="fr-fr">Siwis (Female)</option>
+
+                <!-- Italian voices -->
+                <option value="if_sara" data-lang="it">Sara (Female)</option>
+                <option value="im_nicola" data-lang="it">Nicola (Male)</option>
+
+                <!-- Japanese voices -->
+                <option value="jf_alpha" data-lang="ja">Alpha (Female)</option>
+                <option value="jf_gongitsune" data-lang="ja">Gongitsune (Female)</option>
+                <option value="jf_nezumi" data-lang="ja">Nezumi (Female)</option>
+                <option value="jf_tebukuro" data-lang="ja">Tebukuro (Female)</option>
+                <option value="jm_kumo" data-lang="ja">Kumo (Male)</option>
+
+                <!-- Chinese Mandarin voices -->
+                <option value="zf_xiaobei" data-lang="cmn">Xiaobei (Female)</option>
+                <option value="zf_xiaoni" data-lang="cmn">Xiaoni (Female)</option>
+                <option value="zf_xiaoxiao" data-lang="cmn">Xiaoxiao (Female)</option>
+                <option value="zf_xiaoyi" data-lang="cmn">Xiaoyi (Female)</option>
+                <option value="zm_yunjian" data-lang="cmn">Yunjian (Male)</option>
+                <option value="zm_yunxi" data-lang="cmn">Yunxi (Male)</option>
+                <option value="zm_yunxia" data-lang="cmn">Yunxia (Male)</option>
+                <option value="zm_yunyang" data-lang="cmn">Yunyang (Male)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="textInput">Enter Text to Narrate</label>
+            <textarea id="textInput" placeholder="Type or paste your text here..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="musicFile">Background Music (optional: MP3, WAV, OGG)</label>
+            <input type="file" id="musicFile" accept="audio/*">
+        </div>
+
+        <div class="slider-group">
+            <label>Voice Volume</label>
+            <div class="slider-container">
+                <input type="range" id="voiceVolume" min="0" max="100" value="100">
+                <span class="slider-value" id="voiceVolumeValue">100%</span>
+            </div>
+        </div>
+
+        <div class="slider-group">
+            <label>Music Volume</label>
+            <div class="slider-container">
+                <input type="range" id="musicVolume" min="0" max="100" value="30">
+                <span class="slider-value" id="musicVolumeValue">30%</span>
+            </div>
+        </div>
+
+        <button class="button" id="generateBtn">Generate Audio</button>
+
+        <div class="progress-bar" id="progressBar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <div class="status" id="status"></div>
+
+        <div class="audio-preview" id="audioPreview">
+            <label>Preview & Download</label>
+            <audio id="audioPlayer" controls></audio>
+            <button class="button" id="downloadBtn" style="margin-top: 10px;">Download WAV</button>
+        </div>
+    </div>
+
+    <script>
+        // UI Elements
+        const apiToken = document.getElementById('apiToken');
+        const languageSelect = document.getElementById('languageSelect');
+        const voiceSelect = document.getElementById('voiceSelect');
+        const textInput = document.getElementById('textInput');
+        const musicFile = document.getElementById('musicFile');
+        const voiceVolume = document.getElementById('voiceVolume');
+        const musicVolume = document.getElementById('musicVolume');
+        const voiceVolumeValue = document.getElementById('voiceVolumeValue');
+        const musicVolumeValue = document.getElementById('musicVolumeValue');
+        const generateBtn = document.getElementById('generateBtn');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const status = document.getElementById('status');
+        const audioPreview = document.getElementById('audioPreview');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        let finalAudioBlob = null;
+
+        // Filter voices based on selected language
+        function filterVoicesByLanguage(selectedLang) {
+            const allOptions = voiceSelect.querySelectorAll('option');
+            let firstVisibleOption = null;
+
+            allOptions.forEach(option => {
+                const voiceLang = option.getAttribute('data-lang');
+                if (voiceLang === selectedLang) {
+                    option.style.display = 'block';
+                    if (!firstVisibleOption) {
+                        firstVisibleOption = option;
+                    }
+                } else {
+                    option.style.display = 'none';
+                }
+            });
+
+            // Select the first visible voice
+            if (firstVisibleOption) {
+                voiceSelect.value = firstVisibleOption.value;
+            }
+        }
+
+        // Initialize with default language
+        filterVoicesByLanguage('en-us');
+
+        // Language change handler
+        languageSelect.addEventListener('change', (e) => {
+            filterVoicesByLanguage(e.target.value);
+        });
+
+        // Update volume display
+        voiceVolume.addEventListener('input', (e) => {
+            voiceVolumeValue.textContent = e.target.value + '%';
+        });
+
+        musicVolume.addEventListener('input', (e) => {
+            musicVolumeValue.textContent = e.target.value + '%';
+        });
+
+        // Show status message
+        function showStatus(message, type = 'info') {
+            status.textContent = message;
+            status.className = 'status ' + type;
+            status.style.display = 'block';
+        }
+
+        // Update progress
+        function updateProgress(percent) {
+            progressBar.style.display = 'block';
+            progressFill.style.width = percent + '%';
+        }
+
+        // Generate TTS audio from Kokoro API
+        async function generateTTS(text, voice, language, token) {
+            const response = await fetch('/kokoro/api/tts', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Kokoro-Key': token,
+                },
+                body: JSON.stringify({
+                    text: text,
+                    voice: voice,
+                    language: language,
+                    speed: 1.0
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`TTS API request failed: ${response.status} - ${errorText}`);
+            }
+
+            return await response.blob();
+        }
+
+        // Mix audio files using Web Audio API
+        async function mixAudio(voiceBlob, musicBlob, voiceVol, musicVol) {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+            // Load voice audio
+            const voiceArrayBuffer = await voiceBlob.arrayBuffer();
+            const voiceAudioBuffer = await audioContext.decodeAudioData(voiceArrayBuffer);
+
+            // Load music audio
+            const musicArrayBuffer = await musicBlob.arrayBuffer();
+            const musicAudioBuffer = await audioContext.decodeAudioData(musicArrayBuffer);
+
+            // Determine output length (longer of the two)
+            const outputLength = Math.max(voiceAudioBuffer.length, musicAudioBuffer.length);
+            const outputBuffer = audioContext.createBuffer(
+                2, // stereo
+                outputLength,
+                audioContext.sampleRate
+            );
+
+            // Mix the audio
+            for (let channel = 0; channel < 2; channel++) {
+                const outputData = outputBuffer.getChannelData(channel);
+                const voiceData = voiceAudioBuffer.getChannelData(Math.min(channel, voiceAudioBuffer.numberOfChannels - 1));
+                const musicData = musicAudioBuffer.getChannelData(Math.min(channel, musicAudioBuffer.numberOfChannels - 1));
+
+                for (let i = 0; i < outputLength; i++) {
+                    let voiceSample = i < voiceData.length ? voiceData[i] * voiceVol : 0;
+                    let musicSample = i < musicData.length ? musicData[i] * musicVol : 0;
+                    outputData[i] = voiceSample + musicSample;
+                }
+            }
+
+            return outputBuffer;
+        }
+
+        // Convert AudioBuffer to WAV Blob
+        function audioBufferToWav(buffer) {
+            const length = buffer.length * buffer.numberOfChannels * 2;
+            const arrayBuffer = new ArrayBuffer(44 + length);
+            const view = new DataView(arrayBuffer);
+            const channels = buffer.numberOfChannels;
+            const sampleRate = buffer.sampleRate;
+
+            // Write WAV header
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + length, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, channels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * channels * 2, true);
+            view.setUint16(32, channels * 2, true);
+            view.setUint16(34, 16, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, length, true);
+
+            // Write audio data
+            const offset = 44;
+            const channelData = [];
+            for (let i = 0; i < channels; i++) {
+                channelData.push(buffer.getChannelData(i));
+            }
+
+            let index = 0;
+            for (let i = 0; i < buffer.length; i++) {
+                for (let channel = 0; channel < channels; channel++) {
+                    const sample = Math.max(-1, Math.min(1, channelData[channel][i]));
+                    view.setInt16(offset + index, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+                    index += 2;
+                }
+            }
+
+            return new Blob([arrayBuffer], { type: 'audio/wav' });
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+
+        // Main generation function
+        generateBtn.addEventListener('click', async () => {
+            const text = textInput.value.trim();
+            const token = apiToken.value.trim();
+            const voice = voiceSelect.value;
+            const language = languageSelect.value;
+            const music = musicFile.files[0];
+
+            // Validation
+            if (!text) {
+                showStatus('Please enter text to narrate', 'error');
+                return;
+            }
+
+            if (!token) {
+                showStatus('Please enter the API access token', 'error');
+                return;
+            }
+
+            try {
+                generateBtn.disabled = true;
+                audioPreview.style.display = 'none';
+                updateProgress(0);
+
+                // Step 1: Generate TTS
+                showStatus('Generating speech with Kokoro TTS...', 'info');
+                updateProgress(25);
+                const voiceBlob = await generateTTS(text, voice, language, token);
+
+                // Step 2: Load music
+                showStatus('Loading background music...', 'info');
+                updateProgress(50);
+
+                // Step 3: Mix audio
+                showStatus('Mixing voice and music...', 'info');
+                updateProgress(75);
+
+                const voiceVol = voiceVolume.value / 100;
+                const musicVol = musicVolume.value / 100;
+
+                if (music) {
+                    const mixedBuffer = await mixAudio(voiceBlob, music, voiceVol, musicVol);
+                    finalAudioBlob = audioBufferToWav(mixedBuffer);
+                } else {
+                    finalAudioBlob = voiceBlob;
+                }
+
+                // Step 4: Convert to WAV
+                showStatus('Creating final audio file...', 'info');
+                updateProgress(90);
+
+                // Step 5: Display result
+                updateProgress(100);
+                showStatus('Audio generated successfully!', 'success');
+
+                const audioUrl = URL.createObjectURL(finalAudioBlob);
+                audioPlayer.src = audioUrl;
+                audioPreview.style.display = 'block';
+
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+                console.error(error);
+            } finally {
+                generateBtn.disabled = false;
+            }
+        });
+
+        // Download function
+        downloadBtn.addEventListener('click', () => {
+            if (finalAudioBlob) {
+                const url = URL.createObjectURL(finalAudioBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'narration_with_music.wav';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        });
+    </script>
+</body>
+</html>
