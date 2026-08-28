@@ -1,69 +1,107 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import useSWR from 'swr';
+import { api } from '@/lib/api';
+import { bookEmoji, relativeTime } from '@/lib/format';
+import type { BookSummary } from '@/lib/types';
+import styles from './library.module.css';
+
+export default function LibraryPage() {
+  const router = useRouter();
+  const { data: books, error: loadError, mutate } = useSWR<BookSummary[]>(
+    '/api/books',
+    () => api.listBooks(),
+  );
+  const [error, setError] = useState('');
+  const [creating, setCreating] = useState(false);
+
+  async function newBook() {
+    setCreating(true);
+    try {
+      const book = await api.createBook();
+      router.push(`/books/${book.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create a book.');
+      setCreating(false);
+    }
+  }
+
+  async function remove(book: BookSummary) {
+    // Deleting takes the sources, chat and notes with it, so confirm first.
+    if (!confirm(`Delete "${book.title}" and everything in it?`)) return;
+    try {
+      await api.deleteBook(book.id);
+      void mutate();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not delete that book.');
+    }
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className={styles.library}>
+      <div className={styles.inner}>
+        <header className={styles.head}>
+          <div>
+            <h1 className={styles.title}>LiveContent&trade;</h1>
+            <p className={styles.sub}>Choose a book to open, or start a new one.</p>
+          </div>
+          <button className="btn" onClick={newBook} disabled={creating}>
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+            </svg>
+            {creating ? 'Creating…' : 'New Book'}
+          </button>
+        </header>
+
+        {(error || loadError) && (
+          <p className="status-line error">
+            {error || 'Could not load your books.'}
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+        )}
+
+        {books === undefined ? (
+          <p className={styles.loading}>Loading your books…</p>
+        ) : books.length === 0 ? (
+          <div className={styles.emptyState}>
+            No books yet. Create one to start collecting sources.
+          </div>
+        ) : (
+          <div className={styles.grid}>
+            {books.map((book) => {
+              const count = book._count?.sources ?? 0;
+              const meta =
+                (count ? `${count} source${count === 1 ? '' : 's'} · ` : '') +
+                relativeTime(book.updatedAt);
+              return (
+                <div key={book.id} className={styles.card}>
+                  <button
+                    type="button"
+                    className={styles.cardOpen}
+                    onClick={() => router.push(`/books/${book.id}`)}
+                  >
+                    <span className={styles.emoji}>{bookEmoji(book.title)}</span>
+                    <span className={styles.cardTitle}>{book.title}</span>
+                    <span className={styles.cardMeta}>{meta}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.del}
+                    title="Delete book"
+                    aria-label={`Delete ${book.title}`}
+                    onClick={() => remove(book)}
+                  >
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                    </svg>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </main>
   );
 }
