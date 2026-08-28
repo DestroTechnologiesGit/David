@@ -1705,3 +1705,200 @@ dialog::backdrop { background: rgba(0,0,0,0.4); }
     line-height: 1.5;
     color: var(--ink-faint);
 }
+
+/* ---------- Note editor (in the Studio pane) ---------- */
+
+/* Editing wants room, so the Studio pane doubles while a note is open. */
+.shell.note-open {
+    grid-template-columns: 368px minmax(0, 1fr) 680px;
+}
+
+@media (max-width: 1180px) {
+    .shell.note-open { grid-template-columns: 310px minmax(0, 1fr) 600px; }
+}
+
+@media (max-width: 940px) {
+    .shell.note-open { grid-template-columns: 1fr; }
+}
+
+.note-view {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.note-view[hidden] { display: none; }
+
+.note-view-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+    flex: none;
+}
+
+.note-crumbs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--ink-faint);
+}
+
+.note-view-title {
+    /* The pane is narrow, so the title must wrap within it rather than
+       overflow the panel edge. */
+    box-sizing: border-box;
+    max-width: 100%;
+    width: 100%;
+    margin: 16px 0 4px;
+    padding: 2px;
+    border: none;
+    outline: none;
+    background: none;
+    font: inherit;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    color: var(--ink);
+    flex: none;
+}
+
+.note-view-title {
+    resize: none;
+    overflow: hidden;
+    line-height: 1.35;
+}
+
+.note-view-title:focus { border-bottom: 2px solid var(--accent); }
+
+.note-view-body {
+    box-sizing: border-box;
+    max-width: 100%;
+    flex: 1;
+    min-height: 200px;
+    width: 100%;
+    margin-top: 8px;
+    padding: 2px;
+    border: none;
+    outline: none;
+    resize: none;
+    background: none;
+    font: inherit;
+    font-size: 14.5px;
+    line-height: 1.7;
+    color: var(--ink);
+}
+
+.note-view-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    flex: none;
+}
+
+.note-view-status {
+    font-size: 12px;
+    color: var(--ink-faint);
+}
+
+/* ---------- Note formatting toolbar ---------- */
+
+.note-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-wrap: wrap;
+    padding: 8px 0;
+    margin-top: 6px;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    flex: none;
+}
+
+.nt-btn {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 7px;
+    background: none;
+    color: var(--ink-soft);
+    cursor: pointer;
+}
+
+.nt-btn:hover { background: var(--line-soft); color: var(--ink); }
+.nt-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.nt-btn svg { width: 18px; height: 18px; }
+
+.nt-sep {
+    width: 1px;
+    height: 20px;
+    margin: 0 6px;
+    background: var(--line);
+}
+
+.nt-select {
+    height: 32px;
+    padding: 0 6px;
+    border: none;
+    border-radius: 7px;
+    background: none;
+    font: inherit;
+    font-size: 13.5px;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+.nt-select:hover { background: var(--line-soft); }
+
+/* The body is a rich surface now, so block elements need styling. */
+.note-view-body:focus { outline: none; }
+
+.note-view-body:empty::before {
+    content: attr(data-placeholder);
+    color: var(--ink-faint);
+}
+
+.note-view-body h1 { font-size: 20px; margin: 14px 0 8px; }
+.note-view-body h2 { font-size: 17px; margin: 14px 0 8px; }
+.note-view-body h3 { font-size: 15px; margin: 12px 0 6px; }
+.note-view-body p { margin: 0 0 10px; }
+.note-view-body ul,
+.note-view-body ol { margin: 0 0 10px; padding-left: 22px; }
+.note-view-body li { margin: 3px 0; }
+
+.note-view-body blockquote {
+    margin: 0 0 10px;
+    padding: 2px 0 2px 12px;
+    border-left: 3px solid var(--line);
+    color: var(--ink-soft);
+}
+
+.note-view-body code {
+    padding: 1px 5px;
+    border-radius: 5px;
+    background: var(--line-soft);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.9em;
+}
+
+.note-view-body pre {
+    margin: 0 0 10px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: #14162e;
+    color: #e6e8f5;
+    overflow-x: auto;
+}
+
+.note-view-body pre code { background: none; color: inherit; padding: 0; }
+.note-view-body hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
+.note-view-body a { color: var(--accent); }
