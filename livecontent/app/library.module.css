@@ -18,6 +18,15 @@
   margin-bottom: 34px;
 }
 
+.logo {
+  display: block;
+  width: auto;
+  height: 38px;
+  max-width: 100%;
+  object-fit: contain;
+  margin-bottom: 14px;
+}
+
 .title {
   font-size: 34px;
   font-weight: 600;

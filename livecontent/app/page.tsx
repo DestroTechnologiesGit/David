@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { api } from '@/lib/api';
@@ -44,7 +45,15 @@ export default function LibraryPage() {
       <div className={styles.inner}>
         <header className={styles.head}>
           <div>
-            <h1 className={styles.title}>LiveContent&trade;</h1>
+            <Image
+              src="/logo.png"
+              alt="LiveContent"
+              width={320}
+              height={110}
+              priority
+              className={styles.logo}
+            />
+            <h1 className={styles.title}>Your books</h1>
             <p className={styles.sub}>Choose a book to open, or start a new one.</p>
           </div>
           <button className="btn" onClick={newBook} disabled={creating}>

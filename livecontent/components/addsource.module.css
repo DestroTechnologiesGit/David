@@ -1,0 +1,71 @@
+.dialog {
+  width: min(560px, calc(100vw - 32px));
+  padding: 28px 30px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 18px 44px rgba(16, 19, 43, 0.22);
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  height: fit-content;
+}
+
+.dialog::backdrop { background: rgba(16, 19, 43, 0.45); }
+
+.close {
+  position: absolute; top: 14px; right: 14px;
+  display: grid; place-items: center; width: 30px; height: 30px;
+  border: none; border-radius: 50%; background: none;
+  color: var(--ink-faint); cursor: pointer;
+}
+.close:hover { background: var(--line-soft); color: var(--ink); }
+.close svg { width: 18px; height: 18px; }
+
+.head { text-align: center; margin-bottom: 20px; }
+.head h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.2px; }
+.head p { margin: 6px 0 0; font-size: 13.5px; color: var(--ink-soft); }
+
+.search {
+  display: flex; align-items: center; gap: 6px;
+  border: 2px solid var(--accent); border-radius: 26px;
+  padding: 4px 4px 4px 18px; background: var(--panel);
+}
+.search input {
+  flex: 1; min-width: 0; border: none; outline: none;
+  font: inherit; font-size: 14.5px; padding: 10px 0; background: none;
+}
+.go {
+  display: grid; place-items: center; width: 38px; height: 38px; flex: none;
+  border: none; border-radius: 50%; background: var(--accent); color: #fff; cursor: pointer;
+}
+.go:hover { background: #1667d4; }
+.go svg { width: 18px; height: 18px; }
+
+.hint { margin: 10px 2px 18px; font-size: 12.5px; line-height: 1.55; color: var(--ink-soft); }
+
+.drop {
+  border: 1px dashed var(--line); border-radius: 14px;
+  padding: 26px 20px; text-align: center;
+}
+.dropping { border-color: var(--accent); background: var(--accent-soft); }
+.dropTitle { font-size: 16px; font-weight: 600; }
+.dropSub { margin-top: 6px; font-size: 12.5px; color: var(--ink-soft); }
+
+.actions { display: flex; justify-content: center; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
+.srcBtn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 18px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel); color: var(--ink); font: inherit; font-size: 13.5px; cursor: pointer;
+}
+.srcBtn:hover { background: var(--line-soft); }
+.srcBtn svg { width: 17px; height: 17px; }
+
+.paste { border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+.paste textarea {
+  width: 100%; min-height: 150px; resize: vertical;
+  border: none; outline: none; font: inherit; font-size: 14px;
+  line-height: 1.6; background: none; color: inherit;
+}
+.pasteActions { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }

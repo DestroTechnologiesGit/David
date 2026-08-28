@@ -1,3 +1,42 @@
+.brand {
+  display: flex;
+  align-items: center;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+/* Next's Image sets intrinsic width/height; override both so the logo
+   scales to the sidebar rather than its natural size. */
+.logo {
+  display: block;
+  width: auto;
+  height: 30px;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.addSource {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 13px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.addSource:hover { background: #1667d4; }
+.addSource svg { width: 18px; height: 18px; }
+
 .head {
   display: flex;
   align-items: center;

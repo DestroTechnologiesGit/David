@@ -1,10 +1,12 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import Image from 'next/image';
 import { api } from '@/lib/api';
 import { hostOf } from '@/lib/format';
 import { extractFileText } from '@/lib/extract';
 import type { SearchResult, Source } from '@/lib/types';
+import AddSourceDialog from './AddSourceDialog';
 import styles from './sources.module.css';
 
 type Props = {
@@ -22,13 +24,14 @@ export default function SourcesPanel({ bookId, sources, onChanged, onSummarise }
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [dropping, setDropping] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   function say(text: string, kind = 'busy') {
     setStatus(text ? { text, kind } : null);
   }
 
-  async function runSearch() {
-    const q = query.trim();
+  async function runSearch(explicit?: string) {
+    const q = (explicit ?? query).trim();
     if (!q) return say('Enter something to search for.', 'error');
     setBusy(true);
     setResults(null);
@@ -94,6 +97,23 @@ export default function SourcesPanel({ bookId, sources, onChanged, onSummarise }
     }
   }
 
+  async function addPasted(text: string) {
+    setBusy(true);
+    try {
+      const res = await api.addSources(bookId, [
+        { title: 'Pasted text', kind: 'Document', text },
+      ]);
+      setAdding(false);
+      onChanged();
+      say('Added the pasted text as a source.', 'ok');
+      if (res.added) onSummarise(['Pasted text']);
+    } catch (err) {
+      say(err instanceof Error ? err.message : 'Could not add that text.', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function toggle(source: Source) {
     await api.toggleSource(source.id, !source.on).catch(() => null);
     onChanged();
@@ -116,11 +136,29 @@ export default function SourcesPanel({ bookId, sources, onChanged, onSummarise }
         void handleFiles(e.dataTransfer.files);
       }}
     >
+      <div className={styles.brand}>
+        <Image
+          src="/logo.png"
+          alt="LiveContent"
+          width={320}
+          height={110}
+          priority
+          className={styles.logo}
+        />
+      </div>
+
       <header className={styles.head}>
         <h2 className={styles.title}>Find Sources</h2>
       </header>
 
       <div className={styles.body}>
+        <button className={styles.addSource} onClick={() => setAdding(true)}>
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+          </svg>
+          Add source
+        </button>
+
         <div className={styles.search}>
           <input
             value={query}
@@ -143,7 +181,7 @@ export default function SourcesPanel({ bookId, sources, onChanged, onSummarise }
             </span>
             <button
               className={styles.go}
-              onClick={runSearch}
+              onClick={() => runSearch()}
               disabled={busy}
               title="Search"
               aria-label="Search"
@@ -244,6 +282,22 @@ export default function SourcesPanel({ bookId, sources, onChanged, onSummarise }
           </p>
         )}
       </div>
+
+      <AddSourceDialog
+        open={adding}
+        onClose={() => setAdding(false)}
+        onResearch={(t) => {
+          setAdding(false);
+          setQuery(t);
+          void runSearch(t);
+        }}
+        onFiles={(files) => {
+          setAdding(false);
+          void handleFiles(files);
+        }}
+        onPaste={addPasted}
+        status={status}
+      />
     </section>
   );
 }
