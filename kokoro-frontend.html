@@ -288,6 +288,13 @@
         <p class="token-copy">Enter the access token for your LiveContent speech
         server. It is kept in this browser only and never sent anywhere else.</p>
 
+        <label for="baseInput">Server Address</label>
+        <input type="text" id="baseInput"
+               placeholder="Leave blank if served by the speech server"
+               autocomplete="off" spellcheck="false">
+        <p class="token-hint">For example <code>http://localhost:8890</code>.
+        Required when opening this page from a file.</p>
+
         <label for="tokenInput">Access Token</label>
         <input type="password" id="tokenInput" placeholder="Paste your access token"
                autocomplete="current-password">

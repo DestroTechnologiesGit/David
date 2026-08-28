@@ -458,9 +458,35 @@ function updateProgress(percent) {
     progressFill.style.width = percent + '%';
 }
 
+// Where the speech API lives. Served from the API host, this stays relative
+// and "just works". Set a full origin (via the field in the dialog) to point
+// the page at an API on another host, or to run it from a file:// path.
+function apiBase() {
+    try {
+        const saved = (localStorage.getItem(BASE_KEY) || '').trim();
+        if (saved) return saved.replace(/\/+$/, '');
+    } catch (e) {
+        /* Storage unavailable; fall through to the default. */
+    }
+    // file:// has no server to be relative to, so a base must be set.
+    if (location.protocol === 'file:') return '';
+    // Served under /kokoro by the reverse proxy, or at the root standalone.
+    return location.pathname.startsWith('/kokoro') ? '/kokoro' : '';
+}
+
+function apiUrl(path) {
+    const base = apiBase();
+    if (!base && location.protocol === 'file:') {
+        throw new Error(
+            'No API address set. Open the token dialog and enter the address '
+            + 'of your speech server, for example http://localhost:8890');
+    }
+    return base + path;
+}
+
 // Generate TTS audio from the speech API
 async function generateTTS(text, voice, language, token, format) {
-    const response = await fetch('/kokoro/api/tts', {
+    const response = await fetch(apiUrl('/api/tts'), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -615,7 +641,7 @@ async function streamCompressed(response, onProgress) {
 // length, so MediaSource is fed the bytes as they arrive.
 async function streamTTS(text, voice, language, token, onProgress, format) {
     const wanted = format || 'wav';
-    const response = await fetch('/kokoro/api/tts/stream', {
+    const response = await fetch(apiUrl('/api/tts/stream'), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -964,12 +990,14 @@ downloadBtn.addEventListener('click', () => {
 // has to notice. It is stored only if they opt in, and the sidebar input stays
 // the single source of truth that generation reads from.
 const TOKEN_KEY = 'kokoro.token.v1';
+const BASE_KEY = 'kokoro.apibase.v1';
 const tokenDialog = document.getElementById('tokenDialog');
 const tokenForm = document.getElementById('tokenForm');
 const tokenInput = document.getElementById('tokenInput');
 const tokenRemember = document.getElementById('tokenRemember');
 const tokenError = document.getElementById('tokenError');
 const tokenCancel = document.getElementById('tokenCancel');
+const baseInput = document.getElementById('baseInput');
 
 function readStoredToken() {
     // Storage can throw in private modes, so a failure just means "no token".
@@ -994,8 +1022,14 @@ function openTokenDialog() {
     if (tokenDialog.open) return;
     tokenError.hidden = true;
     tokenInput.value = apiToken.value.trim();
+    if (baseInput) baseInput.value = apiBase();
     tokenDialog.showModal();
-    tokenInput.focus();
+    // From a file:// page the address matters most, so start there.
+    if (baseInput && location.protocol === 'file:' && !baseInput.value) {
+        baseInput.focus();
+    } else {
+        tokenInput.focus();
+    }
 }
 
 if (tokenDialog && tokenForm) {
@@ -1011,6 +1045,15 @@ if (tokenDialog && tokenForm) {
         }
         apiToken.value = value;
         writeStoredToken(tokenRemember.checked ? value : '');
+        if (baseInput) {
+            const base = baseInput.value.trim().replace(/\/+$/, '');
+            try {
+                if (base) localStorage.setItem(BASE_KEY, base);
+                else localStorage.removeItem(BASE_KEY);
+            } catch (e) {
+                /* Not fatal; the address just will not persist. */
+            }
+        }
         tokenDialog.close();
     });
 
