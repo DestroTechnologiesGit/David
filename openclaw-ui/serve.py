@@ -27,6 +27,9 @@ UI_FILE = UI_DIR / "index.html"
 STATIC_TYPES = {
     ".css": "text/css; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
+    # library.html is a real second page, so it must be served as itself
+    # rather than falling through to index.html.
+    ".html": "text/html; charset=utf-8",
 }
 
 
