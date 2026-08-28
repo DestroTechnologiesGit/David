@@ -1620,6 +1620,25 @@ dialog::backdrop { background: rgba(0,0,0,0.4); }
     margin-bottom: 6px;
 }
 
+/* Groups the + button with "View all". Centred rather than baseline-aligned,
+   because an icon button has no text baseline to sit on. */
+.studio-notes-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.studio-notes-actions .icon-btn {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+}
+
+.studio-notes-actions .icon-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
 .studio-notes-head h3 {
     margin: 0;
     font-size: 14px;
