@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Small authenticated HTTP bridge for the local Kokoro TTS CLI."""
 
+import argparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hmac
 import json
@@ -45,6 +46,32 @@ KOKORO = os.environ.get("KOKORO_BIN", "/home/ubuntu/.local/bin/kokoro-tts")
 # How long to wait for the CLI to produce the next chunk before giving up.
 STREAM_CHUNK_TIMEOUT = float(os.environ.get("KOKORO_STREAM_CHUNK_TIMEOUT", "180"))
 CONTENT_TYPES = {"wav": "audio/wav", "mp3": "audio/mpeg"}
+# Comma-separated origins allowed to call the API from a browser. "*" allows
+# any origin; empty disables CORS entirely (same-origin use only).
+DEFAULT_VOICE = os.environ.get("KOKORO_DEFAULT_VOICE", "af_sarah")
+DEFAULT_LANGUAGE = os.environ.get("KOKORO_DEFAULT_LANGUAGE", "en-us")
+
+# The voice inventory, grouped by the language code each voice is trained
+# for. Mirrors kokoro-tts; /api/voices serves it so callers need not hardcode.
+VOICES = {
+    "en-us": ["af_alloy", "af_aoede", "af_bella", "af_heart", "af_jessica",
+              "af_kore", "af_nicole", "af_nova", "af_river", "af_sarah",
+              "af_sky", "am_adam", "am_echo", "am_eric", "am_fenrir",
+              "am_liam", "am_michael", "am_onyx", "am_puck"],
+    "en-gb": ["bf_alice", "bf_emma", "bf_isabella", "bf_lily",
+              "bm_daniel", "bm_fable", "bm_george", "bm_lewis"],
+    "fr-fr": ["ff_siwis"],
+    "it": ["if_sara", "im_nicola"],
+    "ja": ["jf_alpha", "jf_gongitsune", "jf_nezumi", "jf_tebukuro", "jm_kumo"],
+    "cmn": ["zf_xiaobei", "zf_xiaoni", "zf_xiaoxiao", "zf_xiaoyi",
+            "zm_yunjian", "zm_yunxi", "zm_yunxia", "zm_yunyang"],
+    "es": ["ef_dora", "em_alex", "em_santa"],
+    "hi": ["hf_alpha", "hf_beta", "hm_omega", "hm_psi"],
+}
+
+CORS_ORIGINS = [
+    o.strip() for o in os.environ.get("KOKORO_CORS_ORIGINS", "*").split(",") if o.strip()
+]
 SYNTHESIS_LOCK = threading.Lock()
 
 
@@ -161,13 +188,76 @@ def chunk_sort_key(path: Path) -> tuple:
     return (int(match.group(1)) if match else 0, path.name)
 
 
+def cli_path() -> str | None:
+    """Resolve KOKORO_BIN to a real executable, via PATH for a bare name."""
+    if os.sep in KOKORO or (os.altsep and os.altsep in KOKORO):
+        return KOKORO if os.access(KOKORO, os.X_OK) else None
+    return shutil.which(KOKORO)
+
+
 def expected_token() -> str:
-    config = json.loads(OPENCLAW_CONFIG.read_text(encoding="utf-8"))
-    return config["gateway"]["auth"]["token"]
+    """The token callers must present.
+
+    KOKORO_API_TOKEN wins so the service can run on any host. The OpenClaw
+    config is only a fallback, for the original deployment where the two
+    services share one token.
+    """
+    token = os.environ.get("KOKORO_API_TOKEN", "").strip()
+    if token:
+        return token
+    try:
+        config = json.loads(OPENCLAW_CONFIG.read_text(encoding="utf-8"))
+        return config["gateway"]["auth"]["token"]
+    except (OSError, ValueError, KeyError) as exc:
+        raise RuntimeError(
+            "No API token configured. Set KOKORO_API_TOKEN, or point "
+            f"OPENCLAW_CONFIG at a readable OpenClaw config ({exc})."
+        ) from exc
 
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "KokoroWeb/1.0"
+
+    def cors_origin(self) -> str:
+        """The value to echo in Access-Control-Allow-Origin, or "" for none."""
+        if not CORS_ORIGINS:
+            return ""
+        origin = self.headers.get("Origin", "")
+        if "*" in CORS_ORIGINS:
+            # Echo the caller's origin so credentialed requests still work.
+            return origin or "*"
+        return origin if origin in CORS_ORIGINS else ""
+
+    def send_cors_headers(self) -> None:
+        origin = self.cors_origin()
+        if not origin:
+            return
+        self.send_header("Access-Control-Allow-Origin", origin)
+        self.send_header("Vary", "Origin")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header(
+            "Access-Control-Allow-Headers",
+            "Authorization, Content-Type, X-Kokoro-Key",
+        )
+        self.send_header("Access-Control-Max-Age", "86400")
+
+    def authorized(self) -> bool:
+        """Accept an Authorization: Bearer token or the legacy header."""
+        try:
+            expected = expected_token()
+        except RuntimeError as exc:
+            self.send_json_error(500, str(exc))
+            return False
+        header = self.headers.get("Authorization", "")
+        supplied = ""
+        if header.lower().startswith("bearer "):
+            supplied = header[7:].strip()
+        if not supplied:
+            supplied = self.headers.get("X-Kokoro-Key", "")
+        if not supplied or not hmac.compare_digest(supplied, expected):
+            self.send_json_error(401, "Invalid API access token")
+            return False
+        return True
 
     def send_bytes(self, status: int, body: bytes, content_type: str) -> None:
         self.send_response(status)
@@ -175,8 +265,16 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_cors_headers()
         self.end_headers()
         self.wfile.write(body)
+
+    def do_OPTIONS(self) -> None:
+        """CORS preflight for cross-origin API callers."""
+        self.send_response(204)
+        self.send_cors_headers()
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def send_json_error(self, status: int, message: str) -> None:
         self.send_bytes(
@@ -185,7 +283,71 @@ class Handler(BaseHTTPRequestHandler):
             "application/json; charset=utf-8",
         )
 
+    def api_path(self) -> str:
+        """The request path reduced to its /api/... part.
+
+        A reverse proxy may or may not strip its mount prefix, so
+        /kokoro/api/tts and /api/tts are treated the same.
+        """
+        path = self.path.split("?", 1)[0].rstrip("/") or "/"
+        index = path.find("/api")
+        return path[index:] if index > 0 else path
+
+    def send_json(self, status: int, payload: dict) -> None:
+        self.send_bytes(
+            status,
+            json.dumps(payload, indent=2).encode("utf-8"),
+            "application/json; charset=utf-8",
+        )
+
     def do_GET(self) -> None:
+        path = self.api_path()
+
+        # ---- API: discovery and metadata (no token required) ----
+        if path == "/api":
+            self.send_json(200, {
+                "service": "kokoro-tts",
+                "version": "1.0",
+                "endpoints": {
+                    "GET /api": "This description.",
+                    "GET /api/health": "Liveness check.",
+                    "GET /api/voices": "Voices grouped by language code.",
+                    "POST /api/tts": "Synthesize text, returns a complete audio file.",
+                    "POST /api/tts/stream": "Synthesize text, streamed as it is produced.",
+                },
+                "auth": "Authorization: Bearer <token>",
+                "request": {
+                    "text": "string, required",
+                    "voice": f"string, default {DEFAULT_VOICE}",
+                    "language": f"string, default {DEFAULT_LANGUAGE}",
+                    "speed": "number 0.5-2.0, default 1.0",
+                    "format": "wav or mp3, default wav",
+                },
+                "limits": {
+                    "max_text_length": MAX_TEXT_LENGTH,
+                    "max_stream_text_length": MAX_STREAM_TEXT_LENGTH,
+                },
+            })
+            return
+
+        if path == "/api/health":
+            resolved = cli_path()
+            self.send_json(200, {
+                "status": "ok" if resolved else "degraded",
+                "cli": resolved or KOKORO,
+                "cli_present": bool(resolved),
+            })
+            return
+
+        if path == "/api/voices":
+            self.send_json(200, {
+                "languages": sorted(VOICES),
+                "voices": VOICES,
+                "default_voice": DEFAULT_VOICE,
+                "default_language": DEFAULT_LANGUAGE,
+            })
+            return
+
         # Match on the bare filename so no path can escape the frontend's
         # directory, and so the /kokoro prefix is irrelevant here.
         name = self.path.split("?", 1)[0].rsplit("/", 1)[-1]
@@ -203,14 +365,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_bytes(200, FRONTEND.read_bytes(), "text/html; charset=utf-8")
 
     def do_POST(self) -> None:
-        if self.path not in ("/api/tts", "/api/tts/stream"):
+        path = self.api_path()
+        if path not in ("/api/tts", "/api/tts/stream"):
             self.send_json_error(404, "Not found")
             return
-        supplied = self.headers.get("X-Kokoro-Key", "")
-        if not supplied or not hmac.compare_digest(supplied, expected_token()):
-            self.send_json_error(401, "Invalid API access token")
+        if not self.authorized():
             return
-        streaming = self.path == "/api/tts/stream"
+        streaming = path == "/api/tts/stream"
         max_text = MAX_STREAM_TEXT_LENGTH if streaming else MAX_TEXT_LENGTH
         try:
             length = int(self.headers.get("Content-Length", "0"))
@@ -220,8 +381,8 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("Invalid request size")
             payload = json.loads(self.rfile.read(length))
             text = str(payload.get("text", "")).strip()
-            voice = str(payload.get("voice", "af_sarah"))
-            language = str(payload.get("language", "en-us"))
+            voice = str(payload.get("voice", DEFAULT_VOICE))
+            language = str(payload.get("language", DEFAULT_LANGUAGE))
             speed = float(payload.get("speed", 1.0))
             audio_format = str(payload.get("format", "wav")).lower()
             if audio_format not in ("wav", "mp3"):
@@ -416,6 +577,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Transfer-Encoding", "chunked")
+        # The streamed response writes its own headers, so CORS is repeated
+        # here rather than inherited from send_bytes.
+        self.send_cors_headers()
         self.end_headers()
 
     def write_chunked(self, payload: bytes) -> None:
@@ -431,5 +595,39 @@ class Handler(BaseHTTPRequestHandler):
         print(f"{self.client_address[0]} - {fmt % args}", flush=True)
 
 
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Kokoro TTS HTTP API.",
+        epilog="Bind 0.0.0.0 to accept connections from other machines.",
+    )
+    parser.add_argument("--host", default=HOST, help=f"bind address (default {HOST})")
+    parser.add_argument("--port", type=int, default=PORT, help=f"bind port (default {PORT})")
+    args = parser.parse_args()
+
+    try:
+        token = expected_token()
+    except RuntimeError as exc:
+        print(f"Refusing to start: {exc}")
+        raise SystemExit(1)
+
+    print(f"Kokoro TTS API  ->  http://{args.host}:{args.port}/api")
+    print(f"  health  GET  /api/health")
+    print(f"  voices  GET  /api/voices")
+    print(f"  speak   POST /api/tts")
+    print(f"  stream  POST /api/tts/stream")
+    print(f"  auth    Authorization: Bearer <token>  ({len(token)} chars configured)")
+    if not cli_path():
+        print(f"  WARNING: Kokoro CLI '{KOKORO}' not found; synthesis will fail.")
+    if args.host not in ("127.0.0.1", "localhost") and "*" in CORS_ORIGINS:
+        print("  NOTE: reachable off-host with CORS open to any origin. "
+              "Set KOKORO_CORS_ORIGINS to restrict browser callers.")
+    print("\nCtrl+C to stop.")
+
+    try:
+        ThreadingHTTPServer((args.host, args.port), Handler).serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopped.")
+
+
 if __name__ == "__main__":
-    ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
+    main()

@@ -352,6 +352,10 @@ override the file.
 | `KOKORO_MAX_TEXT_LENGTH` | `5000` | Character cap, Generate tab |
 | `KOKORO_MAX_STREAM_TEXT_LENGTH` | `10000` | Character cap, Stream tab |
 | `KOKORO_FRONTEND` | `/home/ubuntu/kokoro-frontend.html` | UI file served on `GET /`; `kokoro-app.css` and `kokoro-app.js` are served from the same directory |
+| `KOKORO_API_TOKEN` | _(unset)_ | Token callers send as `Authorization: Bearer`. Set this to run the API on any host; without it the token is read from `OPENCLAW_CONFIG` |
+| `KOKORO_CORS_ORIGINS` | `*` | Origins allowed to call the API from a browser; a comma-separated list restricts it, empty disables CORS |
+| `KOKORO_DEFAULT_VOICE` | `af_sarah` | Voice used when a request omits one |
+| `KOKORO_DEFAULT_LANGUAGE` | `en-us` | Language used when a request omits one |
 | `OPENCLAW_CONFIG` | `/home/ubuntu/.openclaw/openclaw.json` | Where the auth token is read from |
 | `KOKORO_BIN` | `/home/ubuntu/.local/bin/kokoro-tts` | Kokoro CLI executable |
 | `KOKORO_STREAM_CHUNK_TIMEOUT` | `180` | Seconds to wait per streaming chunk |
@@ -368,6 +372,11 @@ sending. **Raise them together**, or the page will allow text the server rejects
 > `index.html`, `app.css` and `app.js` in `/home/ubuntu/openclaw-ui`.
 
 ### API
+
+The speech API can run standalone on any host — see
+[kokoro-web/API.md](kokoro-web/API.md) for endpoints, auth, and examples.
+Start it with `python3 server.py --host 0.0.0.0 --port 8890` and a
+`KOKORO_API_TOKEN`.
 
 Both endpoints authenticate with `X-Kokoro-Key: <gateway token>`.
 
