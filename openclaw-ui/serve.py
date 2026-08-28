@@ -19,7 +19,15 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 API_PREFIX = "/openclaw-api"
-UI_FILE = Path(__file__).resolve().parent / "index.html"
+UI_DIR = Path(__file__).resolve().parent
+UI_FILE = UI_DIR / "index.html"
+
+# The page's own stylesheet and script. Anything else still falls through to
+# index.html so deep links keep working.
+STATIC_TYPES = {
+    ".css": "text/css; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -99,10 +107,27 @@ class Handler(BaseHTTPRequestHandler):
         if self.path.startswith(API_PREFIX):
             self.proxy("GET")
             return
+        asset = self.static_asset()
+        if asset is not None:
+            path, content_type = asset
+            self.send_body(200, path.read_bytes(), content_type)
+            return
         if not UI_FILE.is_file():
             self.send_error_json(500, f"index.html not found next to {Path(__file__).name}")
             return
         self.send_body(200, UI_FILE.read_bytes(), "text/html; charset=utf-8")
+
+    def static_asset(self):
+        """Resolve the request to app.css / app.js next to index.html, or None."""
+        name = urlparse(self.path).path.rsplit("/", 1)[-1]
+        content_type = STATIC_TYPES.get(Path(name).suffix)
+        if not content_type:
+            return None
+        # Serve by bare filename only, so no path can escape the UI directory.
+        candidate = UI_DIR / name
+        if candidate.parent != UI_DIR or not candidate.is_file():
+            return None
+        return candidate, content_type
 
     def do_POST(self) -> None:
         if self.path.startswith(API_PREFIX):

@@ -7,6 +7,9 @@
     # Simplified NotebookLM-style UI.
     handle /studio* {
         root * /home/ubuntu/openclaw-ui
+        # Serve app.css / app.js as themselves; everything else is the page.
+        @asset path /studio/app.css /studio/app.js
+        rewrite @asset /{file.name}
         rewrite * /index.html
         file_server
     }
