@@ -36,6 +36,9 @@ MAX_TEXT_LENGTH = int(os.environ.get("KOKORO_MAX_TEXT_LENGTH", "5000"))
 # Streaming plays as it generates, so a longer document is practical there.
 MAX_STREAM_TEXT_LENGTH = int(os.environ.get("KOKORO_MAX_STREAM_TEXT_LENGTH", "10000"))
 FRONTEND = Path(os.environ.get("KOKORO_FRONTEND", "/home/ubuntu/kokoro-frontend.html"))
+# API reference served at /docs. Ships beside this file.
+API_DOCS = Path(os.environ.get(
+    "KOKORO_API_DOCS", Path(__file__).resolve().parent / "API.md"))
 # The page's stylesheet and script, served from beside the HTML file.
 FRONTEND_ASSETS = {
     "kokoro-app.css": "text/css; charset=utf-8",
@@ -215,6 +218,152 @@ def expected_token() -> str:
         ) from exc
 
 
+DOCS_CSS = """
+:root { color-scheme: light dark; }
+* { box-sizing: border-box; }
+body {
+  margin: 0 auto; padding: 48px 24px 96px; max-width: 820px;
+  font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+  color: #10132b; background: #ffffff;
+}
+h1, h2, h3 { line-height: 1.25; margin: 2em 0 .6em; font-weight: 600; }
+h1 { font-size: 2em; margin-top: 0; letter-spacing: -.5px; }
+h2 { font-size: 1.4em; padding-bottom: .3em; border-bottom: 1px solid #e2e6f5; }
+h3 { font-size: 1.1em; }
+p, ul, ol { margin: 0 0 1em; }
+li { margin: .25em 0; }
+a { color: #3730d8; }
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .88em; padding: .15em .4em; border-radius: 5px;
+  background: #eef1fb; color: #2a2f52;
+}
+pre {
+  margin: 0 0 1.2em; padding: 16px 18px; border-radius: 10px;
+  background: #14162e; color: #e6e8f5; overflow-x: auto;
+}
+pre code { padding: 0; background: none; color: inherit; font-size: .85em; }
+table { width: 100%; border-collapse: collapse; margin: 0 0 1.4em; font-size: .93em; }
+th, td { padding: 9px 12px; border: 1px solid #e2e6f5; text-align: left; vertical-align: top; }
+th { background: #f5f7ff; font-weight: 600; }
+blockquote {
+  margin: 0 0 1.2em; padding: 2px 16px; color: #565b7e;
+  border-left: 3px solid #c9cfe8;
+}
+hr { border: none; border-top: 1px solid #e2e6f5; margin: 2em 0; }
+@media (prefers-color-scheme: dark) {
+  body { background: #101223; color: #e7e9f5; }
+  h2 { border-bottom-color: #272a45; }
+  code { background: #1d2039; color: #cdd2ee; }
+  th, td { border-color: #272a45; }
+  th { background: #191c33; }
+  a { color: #9aa2ff; }
+  blockquote { color: #a3a9c9; border-left-color: #383d61; }
+  hr { border-top-color: #272a45; }
+}
+"""
+
+
+def render_markdown(text: str) -> str:
+    """Render the API reference to HTML.
+
+    Deliberately small: it covers only what API.md uses. Everything is
+    HTML-escaped first, so document content can never inject markup.
+    """
+    import html as html_mod
+
+    def inline(chunk: str) -> str:
+        chunk = html_mod.escape(chunk, quote=False)
+        chunk = re.sub(r"`([^`]+)`", r"<code>\1</code>", chunk)
+        chunk = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", chunk)
+        chunk = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', chunk)
+        return chunk
+
+    out: list[str] = []
+    lines = text.split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+
+        # Fenced code: emitted verbatim, escaped, with no inline parsing.
+        if line.startswith("```"):
+            i += 1
+            body = []
+            while i < len(lines) and not lines[i].startswith("```"):
+                body.append(html_mod.escape(lines[i], quote=False))
+                i += 1
+            i += 1
+            out.append("<pre><code>" + "\n".join(body) + "</code></pre>")
+            continue
+
+        # Tables: a header row followed by a |---| separator.
+        if (line.startswith("|") and i + 1 < len(lines)
+                and set(lines[i + 1].replace("|", "").strip()) <= set("-: ")
+                and "-" in lines[i + 1]):
+            def cells(row: str) -> list[str]:
+                return [c.strip() for c in row.strip().strip("|").split("|")]
+
+            head = cells(line)
+            i += 2
+            rows = []
+            while i < len(lines) and lines[i].startswith("|"):
+                rows.append(cells(lines[i]))
+                i += 1
+            html_rows = ["<tr>" + "".join(f"<th>{inline(c)}</th>" for c in head) + "</tr>"]
+            for row in rows:
+                html_rows.append("<tr>" + "".join(f"<td>{inline(c)}</td>" for c in row) + "</tr>")
+            out.append("<table>" + "".join(html_rows) + "</table>")
+            continue
+
+        heading = re.match(r"^(#{1,6})\s+(.*)$", line)
+        if heading:
+            level = len(heading.group(1))
+            out.append(f"<h{level}>{inline(heading.group(2))}</h{level}>")
+            i += 1
+            continue
+
+        if line.startswith(">"):
+            body = []
+            while i < len(lines) and lines[i].startswith(">"):
+                body.append(lines[i].lstrip(">").strip())
+                i += 1
+            out.append("<blockquote>" + inline(" ".join(body)) + "</blockquote>")
+            continue
+
+        if re.match(r"^\s*[-*]\s+", line):
+            items = []
+            while i < len(lines) and re.match(r"^\s*[-*]\s+", lines[i]):
+                items.append(re.sub(r"^\s*[-*]\s+", "", lines[i]))
+                i += 1
+            out.append("<ul>" + "".join(f"<li>{inline(x)}</li>" for x in items) + "</ul>")
+            continue
+
+        if not line.strip():
+            i += 1
+            continue
+
+        # Paragraph: consume until a blank line or a block-level marker.
+        para = []
+        while i < len(lines) and lines[i].strip() and not re.match(
+                r"^(#{1,6}\s|```|\||>|\s*[-*]\s)", lines[i]):
+            para.append(lines[i].strip())
+            i += 1
+        if para:
+            out.append("<p>" + inline(" ".join(para)) + "</p>")
+
+    title = "Kokoro TTS API"
+    match = re.search(r"^#\s+(.+)$", text, re.M)
+    if match:
+        title = match.group(1).strip()
+    return (
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+        f"<title>{html_mod.escape(title)}</title><style>{DOCS_CSS}</style>"
+        "</head><body>" + "".join(out) + "</body></html>"
+    )
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "KokoroWeb/1.0"
 
@@ -284,14 +433,18 @@ class Handler(BaseHTTPRequestHandler):
         )
 
     def api_path(self) -> str:
-        """The request path reduced to its /api/... part.
+        """The request path reduced to its known-route part.
 
         A reverse proxy may or may not strip its mount prefix, so
-        /kokoro/api/tts and /api/tts are treated the same.
+        /kokoro/api/tts and /api/tts are treated the same, as are
+        /kokoro/docs and /docs.
         """
         path = self.path.split("?", 1)[0].rstrip("/") or "/"
-        index = path.find("/api")
-        return path[index:] if index > 0 else path
+        for route in ("/api", "/docs"):
+            index = path.find(route)
+            if index > 0:
+                return path[index:]
+        return path
 
     def send_json(self, status: int, payload: dict) -> None:
         self.send_bytes(
@@ -303,12 +456,28 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         path = self.api_path()
 
+        # ---- Human-readable API reference ----
+        if path == "/docs":
+            if not API_DOCS.is_file():
+                self.send_json_error(404, f"API docs not found at {API_DOCS}")
+                return
+            text = API_DOCS.read_text(encoding="utf-8")
+            # ?raw=1 serves the Markdown source, for tooling.
+            if "raw" in self.path.split("?", 1)[-1] and "?" in self.path:
+                self.send_bytes(200, text.encode("utf-8"),
+                                "text/markdown; charset=utf-8")
+                return
+            self.send_bytes(200, render_markdown(text).encode("utf-8"),
+                            "text/html; charset=utf-8")
+            return
+
         # ---- API: discovery and metadata (no token required) ----
         if path == "/api":
             self.send_json(200, {
                 "service": "kokoro-tts",
                 "version": "1.0",
                 "endpoints": {
+                    "GET /docs": "Human-readable API reference.",
                     "GET /api": "This description.",
                     "GET /api/health": "Liveness check.",
                     "GET /api/voices": "Voices grouped by language code.",
@@ -611,6 +780,7 @@ def main() -> None:
         raise SystemExit(1)
 
     print(f"Kokoro TTS API  ->  http://{args.host}:{args.port}/api")
+    print(f"  docs    GET  /docs")
     print(f"  health  GET  /api/health")
     print(f"  voices  GET  /api/voices")
     print(f"  speak   POST /api/tts")

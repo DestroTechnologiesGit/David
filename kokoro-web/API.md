@@ -42,6 +42,7 @@ authenticating.
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
+| GET | `/docs` | no | This reference (add `?raw=1` for Markdown) |
 | GET | `/api` | no | Endpoint list, parameters, limits |
 | GET | `/api/health` | no | Liveness, and whether the CLI resolved |
 | GET | `/api/voices` | no | Voices grouped by language |
@@ -170,6 +171,7 @@ handle_path /kokoro/* {
 }
 ```
 
-The API matches on the path's last segment, so it works with or without a
-prefix. Disable proxy response buffering for `/api/tts/stream`, or streaming
-will be buffered into a single delayed response.
+Routes are matched from the `/api` or `/docs` part onward, so they work
+whether or not the proxy strips its mount prefix — `/kokoro/docs` and `/docs`
+both resolve. Disable proxy response buffering for `/api/tts/stream`, or
+streaming will be buffered into a single delayed response.
