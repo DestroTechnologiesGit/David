@@ -557,6 +557,36 @@ body {
     text-overflow: ellipsis;
 }
 
+.chat-title { cursor: text; border-radius: 6px; }
+
+.chat-title:hover {
+    background: #f1f3f4;
+    box-shadow: 0 0 0 4px #f1f3f4;
+}
+
+.chat-title:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
+
+/* Replaces the heading while renaming, so it must not shift the layout. */
+.chat-title-input {
+    display: block;
+    width: 100%;
+    font: inherit;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    color: var(--ink);
+    margin: 0;
+    padding: 0 4px;
+    border: none;
+    border-bottom: 2px solid var(--accent);
+    border-radius: 4px 4px 0 0;
+    background: #fff;
+    outline: none;
+}
+
 .chat-head > div:first-child { min-width: 0; }
 
 .chat-sub {
