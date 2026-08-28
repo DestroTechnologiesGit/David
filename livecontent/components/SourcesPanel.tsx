@@ -21,6 +21,7 @@ export default function SourcesPanel({ bookId, sources, onChanged, onSummarise }
   const [status, setStatus] = useState<{ text: string; kind: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [dropping, setDropping] = useState(false);
 
   function say(text: string, kind = 'busy') {
     setStatus(text ? { text, kind } : null);
@@ -101,7 +102,20 @@ export default function SourcesPanel({ bookId, sources, onChanged, onSummarise }
   const onCount = sources.filter((s) => s.on).length;
 
   return (
-    <section className="panel" aria-label="Sources">
+    <section
+      className="panel"
+      aria-label="Sources"
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDropping(true);
+      }}
+      onDragLeave={() => setDropping(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDropping(false);
+        void handleFiles(e.dataTransfer.files);
+      }}
+    >
       <header className={styles.head}>
         <h2 className={styles.title}>Find Sources</h2>
       </header>
@@ -141,12 +155,6 @@ export default function SourcesPanel({ bookId, sources, onChanged, onSummarise }
           </div>
         </div>
 
-        <button className={styles.upload} onClick={() => fileRef.current?.click()} disabled={busy}>
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z" />
-          </svg>
-          Upload documents
-        </button>
         <input
           ref={fileRef}
           type="file"
@@ -227,9 +235,12 @@ export default function SourcesPanel({ bookId, sources, onChanged, onSummarise }
           </div>
         )}
 
+        {dropping && <p className="status-line busy">Drop to add these documents.</p>}
+
         {!sources.length && !results && (
           <p className="empty">
-            Saved sources will appear here. Search the web above, or upload a document.
+            Saved sources will appear here. Search the web above, or drop a
+            PDF, .docx or .txt onto this panel.
           </p>
         )}
       </div>

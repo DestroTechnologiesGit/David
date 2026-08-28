@@ -183,8 +183,9 @@ export default function ChatPanel({
 
         {!overview && !transcript.length && !streamingText && (
           <div className={styles.guide}>
-            <strong>Start here.</strong> Search the web or upload a document on the
-            left, then ask a question. Save any answer to Notes on the right.
+            <strong>Start here.</strong> Search the web on the left, or drop a
+            document onto that panel, then ask a question. Save any answer to
+            Notes on the right.
           </div>
         )}
 

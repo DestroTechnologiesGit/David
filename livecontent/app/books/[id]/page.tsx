@@ -1,7 +1,8 @@
 'use client';
 
-import { use, useCallback, useEffect, useRef, useState } from 'react';
+import { use, useCallback, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import useSWR from 'swr';
 import ChatPanel from '@/components/ChatPanel';
 import SourcesPanel from '@/components/SourcesPanel';
 import StudioPanel from '@/components/StudioPanel';
@@ -13,23 +14,19 @@ export default function BookPage({ params }: PageProps<'/books/[id]'>) {
   const { id } = use(params);
   const router = useRouter();
 
-  const [book, setBook] = useState<Book | null>(null);
-  const [missing, setMissing] = useState(false);
+  const {
+    data: book,
+    error: loadError,
+    mutate,
+  } = useSWR<Book>(`/api/books/${id}`, () => api.getBook(id));
   const [error, setError] = useState('');
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  // Re-read the book after any change, so every panel reflects it.
   const load = useCallback(async () => {
-    try {
-      setBook(await api.getBook(id));
-    } catch {
-      setMissing(true);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+    await mutate();
+  }, [mutate]);
 
   /**
    * Send a message and stream the reply. The user's message is stored first so
@@ -124,7 +121,7 @@ export default function BookPage({ params }: PageProps<'/books/[id]'>) {
     [book, streamingText, load],
   );
 
-  if (missing) {
+  if (loadError) {
     return (
       <main className={styles.missing}>
         <p>That book could not be found.</p>

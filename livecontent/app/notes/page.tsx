@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import useSWR from 'swr';
 import { api } from '@/lib/api';
 import { relativeTime } from '@/lib/format';
 import type { Note } from '@/lib/types';
@@ -9,16 +10,8 @@ import styles from './notes.module.css';
 
 export default function NotesPage() {
   const router = useRouter();
-  const [notes, setNotes] = useState<Note[] | null>(null);
+  const { data: notes } = useSWR<Note[]>('/api/notes', () => api.listNotes());
   const [filter, setFilter] = useState('');
-
-  const load = useCallback(async () => {
-    setNotes(await api.listNotes().catch(() => []));
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
 
   const q = filter.trim().toLowerCase();
   const shown = (notes ?? []).filter(
