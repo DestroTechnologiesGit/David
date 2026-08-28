@@ -68,120 +68,89 @@ body {
     padding: 26px 20px;
     display: flex;
     flex-direction: column;
-    gap: 26px;
+    gap: 22px;
     position: sticky;
     top: 0;
     height: 100vh;
 }
 
+/* The settings stack can outgrow the viewport, so it scrolls on its own
+   and leaves the brand and footer pinned. */
+.side-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    margin: 0 -6px;
+    /* Trailing space so the last control never sits flush against the
+       footer when the list is scrolled to the bottom. */
+    padding: 0 6px 8px;
+}
+
+.side-section {
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--line-soft);
+}
+
+.side-section:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.side-title {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 13px;
+}
+
+.side-note {
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--ink-faint);
+}
+
 .brand {
     display: flex;
-    align-items: center;
-    gap: 11px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 7px;
     padding: 0 4px;
-}
-
-.brand-mark {
-    width: 30px;
-    height: 30px;
-    flex: none;
-    color: var(--brand);
-}
-
-.brand-name {
-    font-size: 25px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-    color: var(--brand);
-    line-height: 1.1;
 }
 
 .brand-sub {
     font-family: var(--mono);
     font-size: 11.5px;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.09em;
     text-transform: uppercase;
     color: var(--ink-faint);
-    margin-top: 2px;
+    line-height: 1.4;
 }
 
-.nav {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.nav-item {
-    display: flex;
-    align-items: center;
-    gap: 13px;
-    padding: 12px 15px;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: none;
-    color: var(--ink-soft);
-    font-family: var(--mono);
-    font-size: 13.5px;
-    text-align: left;
-    text-decoration: none;
-    cursor: pointer;
-    width: 100%;
-}
-
-.nav-item svg {
-    width: 20px;
-    height: 20px;
-    flex: none;
-}
-
-.nav-item:hover {
-    background: var(--line-soft);
-    color: var(--ink);
-}
-
-.nav-item.active {
-    background: var(--accent);
-    color: #fff;
-    font-weight: 600;
-}
-
-.nav-item:focus-visible,
-.icon-btn:focus-visible,
 .tab:focus-visible,
-.chip:focus-visible {
+.link-btn:focus-visible {
     outline: 2px solid var(--brand);
     outline-offset: 2px;
 }
 
 .sidebar-foot {
     margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid var(--line-soft);
     display: flex;
     flex-direction: column;
     gap: 14px;
 }
 
-.upgrade {
-    display: block;
-    width: 100%;
-    padding: 13px;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: var(--brand);
-    color: #fff;
-    font-family: var(--mono);
-    font-size: 13.5px;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.upgrade:hover {
-    background: var(--brand-ink);
-}
-
 .brand-logo {
     display: block;
     width: 100%;
-    max-width: 172px;
+    max-width: 186px;
     height: auto;
 }
 
@@ -215,7 +184,7 @@ body {
 
 .topbar {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     gap: 26px;
     padding: 0 30px;
     height: 58px;
@@ -226,30 +195,19 @@ body {
     z-index: 5;
 }
 
-.topnav {
+/* In the header the tabs are the full-height control, so they carry no
+   separate bottom rule of their own. */
+.topbar .tabs {
+    border-bottom: none;
+    margin-bottom: 0;
+    gap: 8px;
+}
+
+.topbar .tab {
     display: flex;
     align-items: center;
-    gap: 26px;
-    height: 100%;
-}
-
-.topnav a {
-    display: flex;
-    align-items: center;
-    height: 100%;
-    border-bottom: 2px solid transparent;
-    color: var(--ink-soft);
-    font-size: 15px;
-    text-decoration: none;
-}
-
-.topnav a:hover {
-    color: var(--ink);
-}
-
-.topnav a.active {
-    color: var(--brand);
-    border-bottom-color: var(--brand);
+    padding: 0 4px;
+    font-size: 14px;
 }
 
 .topbar-actions {
@@ -257,41 +215,6 @@ body {
     display: flex;
     align-items: center;
     gap: 14px;
-}
-
-.icon-btn {
-    display: grid;
-    place-items: center;
-    width: 34px;
-    height: 34px;
-    border: none;
-    border-radius: 50%;
-    background: none;
-    color: var(--ink-soft);
-    cursor: pointer;
-}
-
-.icon-btn svg {
-    width: 21px;
-    height: 21px;
-}
-
-.icon-btn:hover {
-    background: var(--line-soft);
-    color: var(--ink);
-}
-
-.avatar {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: var(--line);
-    display: grid;
-    place-items: center;
-    font-family: var(--mono);
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--ink-soft);
 }
 
 /* ---------- Content grid ---------- */
@@ -433,35 +356,6 @@ input[type="file"] {
 }
 
 /* ---------- Style chips ---------- */
-
-.chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 9px;
-}
-
-.chip {
-    padding: 8px 17px;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    background: var(--card);
-    color: var(--ink-soft);
-    font-family: var(--mono);
-    font-size: 12.5px;
-    cursor: pointer;
-}
-
-.chip:hover {
-    border-color: var(--accent);
-    color: var(--ink);
-}
-
-.chip.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
-    font-weight: 600;
-}
 
 /* ---------- Sliders ---------- */
 
@@ -795,12 +689,6 @@ audio {
     color: var(--ink-soft);
 }
 
-.footer-links {
-    display: flex;
-    gap: 26px;
-    flex-wrap: wrap;
-}
-
 .footer a {
     color: var(--ink-soft);
     text-decoration: underline;
@@ -808,6 +696,77 @@ audio {
 
 .footer a:hover {
     color: var(--ink);
+}
+
+/* ---------- Access token dialog ---------- */
+
+.token-dialog {
+    /* Centred explicitly rather than relying on the UA default, which some
+       engines do not apply once width/margin are set. */
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    width: min(440px, calc(100vw - 32px));
+    height: fit-content;
+    padding: 26px 28px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--card);
+    color: var(--ink);
+    box-shadow: 0 18px 44px rgba(16, 19, 43, 0.22);
+}
+
+.token-dialog::backdrop {
+    background: rgba(16, 19, 43, 0.45);
+}
+
+.token-title {
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    margin-bottom: 8px;
+}
+
+.token-copy {
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    margin-bottom: 18px;
+}
+
+.token-dialog label {
+    margin-bottom: 8px;
+}
+
+.token-error {
+    margin-top: 8px;
+    font-size: 12.5px;
+    color: var(--err);
+}
+
+.token-remember {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 16px 0 0;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    cursor: pointer;
+}
+
+.token-remember input {
+    width: auto;
+    margin: 0;
+    accent-color: var(--brand);
+    cursor: pointer;
+}
+
+.token-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 22px;
 }
 
 /* ---------- Responsive ---------- */
@@ -834,13 +793,9 @@ audio {
         margin-top: 18px;
     }
 
-    .nav {
-        flex-direction: row;
-        flex-wrap: wrap;
-    }
-
-    .nav-item {
-        width: auto;
+    /* The settings stack scrolls with the page here, not on its own. */
+    .side-scroll {
+        overflow-y: visible;
     }
 
     .content,

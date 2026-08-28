@@ -18,6 +18,7 @@ const musicVolume = document.getElementById('musicVolume');
 const voiceVolumeValue = document.getElementById('voiceVolumeValue');
 const musicVolumeValue = document.getElementById('musicVolumeValue');
 const generateBtn = document.getElementById('generateBtn');
+const modeNote = document.getElementById('modeNote');
 const generateLabel = generateBtn.querySelector('.btn-label') || generateBtn;
 const progressBar = document.getElementById('progressBar');
 const progressFill = document.getElementById('progressFill');
@@ -338,6 +339,25 @@ document.querySelectorAll('.limit-stream').forEach(el => {
 // Which tab is active decides how audio is produced.
 let activeMode = 'generate';
 
+// Built from the constants above so a changed limit shows everywhere, and
+// re-read on each switch rather than baked into the markup.
+function modeNoteHtml(streaming) {
+    const gen = MAX_TEXT_LENGTH.toLocaleString();
+    const str = MAX_STREAM_TEXT_LENGTH.toLocaleString();
+    if (streaming) {
+        return '<strong>Stream</strong> starts playing as soon as the first few words '
+            + 'are ready, instead of waiting for the whole narration. Best for long '
+            + 'text and quick previews. Up to <strong>' + str + ' characters</strong> '
+            + '&mdash; about <strong>13 minutes</strong> of speech. Playback is live, '
+            + 'so leaving the page stops it; the finished audio still appears below.';
+    }
+    return '<strong>Generate</strong> waits for the whole narration, then gives you a '
+        + 'finished file. Slower to start, but you can mix in background music and '
+        + 'download the result. Up to <strong>' + gen + ' characters</strong> &mdash; '
+        + 'about <strong>6 to 7 minutes</strong> of speech. The Stream tab allows '
+        + '<strong>' + str + '</strong>.';
+}
+
 function selectMode(mode) {
     activeMode = mode;
     const streaming = mode === 'stream';
@@ -355,6 +375,9 @@ function selectMode(mode) {
     // The button holds an icon beside its label, so only the label is
     // rewritten here.
     generateLabel.textContent = streaming ? 'Start Streaming' : 'Generate Speech';
+
+    // One note describes the active mode, so it has to follow the tabs.
+    if (modeNote) modeNote.innerHTML = modeNoteHtml(streaming);
 
     // The limit differs per tab, so the counter has to be re-evaluated.
     updateCharCount();
@@ -935,3 +958,79 @@ downloadBtn.addEventListener('click', () => {
         URL.revokeObjectURL(url);
     }
 });
+
+// ---------- Access token dialog ----------
+// The token is asked for on open rather than left as an empty field the user
+// has to notice. It is stored only if they opt in, and the sidebar input stays
+// the single source of truth that generation reads from.
+const TOKEN_KEY = 'kokoro.token.v1';
+const tokenDialog = document.getElementById('tokenDialog');
+const tokenForm = document.getElementById('tokenForm');
+const tokenInput = document.getElementById('tokenInput');
+const tokenRemember = document.getElementById('tokenRemember');
+const tokenError = document.getElementById('tokenError');
+const tokenCancel = document.getElementById('tokenCancel');
+
+function readStoredToken() {
+    // Storage can throw in private modes, so a failure just means "no token".
+    try {
+        return localStorage.getItem(TOKEN_KEY) || '';
+    } catch (e) {
+        return '';
+    }
+}
+
+function writeStoredToken(value) {
+    try {
+        if (value) localStorage.setItem(TOKEN_KEY, value);
+        else localStorage.removeItem(TOKEN_KEY);
+    } catch (e) {
+        /* Not fatal: the token still works for this session. */
+    }
+}
+
+function openTokenDialog() {
+    if (!tokenDialog || typeof tokenDialog.showModal !== 'function') return;
+    if (tokenDialog.open) return;
+    tokenError.hidden = true;
+    tokenInput.value = apiToken.value.trim();
+    tokenDialog.showModal();
+    tokenInput.focus();
+}
+
+if (tokenDialog && tokenForm) {
+    tokenForm.addEventListener('submit', (e) => {
+        // Keep the dialog open when the field is empty instead of saving nothing.
+        const value = tokenInput.value.trim();
+        if (!value) {
+            e.preventDefault();
+            tokenError.textContent = 'Enter a token, or cancel to add it later.';
+            tokenError.hidden = false;
+            tokenInput.focus();
+            return;
+        }
+        apiToken.value = value;
+        writeStoredToken(tokenRemember.checked ? value : '');
+        tokenDialog.close();
+    });
+
+    tokenCancel.addEventListener('click', () => tokenDialog.close());
+
+    // Re-open from the sidebar field so the token can be changed later.
+    apiToken.addEventListener('focus', () => {
+        if (!apiToken.value.trim()) openTokenDialog();
+    });
+
+    // Editing the sidebar field directly must not leave a stale stored token.
+    apiToken.addEventListener('change', () => {
+        if (readStoredToken()) writeStoredToken(apiToken.value.trim());
+    });
+
+    // A stored token fills the field silently; otherwise ask for one.
+    const saved = readStoredToken();
+    if (saved) {
+        apiToken.value = saved;
+    } else {
+        openTokenDialog();
+    }
+}
