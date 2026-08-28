@@ -14,11 +14,20 @@ import argparse
 import http.client
 import json
 import os
+import subprocess
+import tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
 API_PREFIX = "/openclaw-api"
+# Docling converts the formats the browser cannot read (CSV, HTML, ePub).
+# Optional: without it those formats are simply refused, and PDF/.docx/.txt
+# keep working in the browser as before.
+DOCLING_PYTHON = Path(os.environ.get(
+    "DOCLING_PYTHON", Path(__file__).resolve().parent.parent / ".docling-venv" / "bin" / "python"))
+DOCLING_TIMEOUT = float(os.environ.get("DOCLING_TIMEOUT", "180"))
+DOCLING_MAX_BYTES = int(os.environ.get("DOCLING_MAX_BYTES", str(25 * 1024 * 1024)))
 UI_DIR = Path(__file__).resolve().parent
 UI_FILE = UI_DIR / "index.html"
 
@@ -136,7 +145,74 @@ class Handler(BaseHTTPRequestHandler):
         if self.path.startswith(API_PREFIX):
             self.proxy("POST")
             return
+        if self.path.split("?", 1)[0].rstrip("/") == "/convert":
+            self.convert_document()
+            return
         self.send_error_json(404, "Not found")
+
+    def convert_document(self) -> None:
+        """Convert an uploaded document to Markdown with Docling.
+
+        The page parses PDF, .docx and plain text itself; this handles only
+        what it cannot, so most documents still never leave the browser.
+        """
+        if not DOCLING_PYTHON.exists():
+            self.send_error_json(503, (
+                "Document conversion is not available. Install Docling and "
+                "point DOCLING_PYTHON at its interpreter."))
+            return
+
+        length = int(self.headers.get("Content-Length", "0") or 0)
+        if length <= 0:
+            self.send_error_json(400, "No file was sent.")
+            return
+        if length > DOCLING_MAX_BYTES:
+            self.send_error_json(
+                413, f"That file is larger than {DOCLING_MAX_BYTES // (1024 * 1024)} MB.")
+            return
+
+        # Only the formats the browser cannot parse itself are accepted here,
+        # regardless of what a caller claims in the header.
+        allowed = {".csv", ".html", ".htm", ".epub", ".xlsx", ".pptx"}
+        name = self.headers.get("X-Filename", "document")
+        suffix = Path(name).suffix.lower()
+        if suffix not in allowed:
+            # Body must still be drained, or the next request on this
+            # keep-alive connection would read leftover bytes as its own.
+            self.rfile.read(length)
+            self.send_error_json(415, f"Unsupported file type: {suffix or name}")
+            return
+        payload = self.rfile.read(length)
+
+        with tempfile.TemporaryDirectory(prefix="docling-") as tmp:
+            src = Path(tmp) / ("input" + suffix)
+            src.write_bytes(payload)
+            script = (
+                "import sys\n"
+                "from docling.document_converter import DocumentConverter\n"
+                "print(DocumentConverter().convert(sys.argv[1])"
+                ".document.export_to_markdown())\n"
+            )
+            try:
+                result = subprocess.run(
+                    [str(DOCLING_PYTHON), "-c", script, str(src)],
+                    capture_output=True, text=True, timeout=DOCLING_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                self.send_error_json(504, "Converting that document timed out.")
+                return
+
+        if result.returncode != 0:
+            detail = (result.stderr or "Conversion failed").strip().splitlines()
+            # Docling is noisy on stderr; the last line is the useful part.
+            self.send_error_json(422, f"Could not read {name}. {detail[-1][:200]}")
+            return
+
+        text = result.stdout.strip()
+        if not text:
+            self.send_error_json(422, f"No text could be read from {name}.")
+            return
+        self.send_body(200, json.dumps({"text": text}).encode("utf-8"),
+                       "application/json; charset=utf-8")
 
     def handle_one_request(self) -> None:
         # Browsers open speculative keep-alive sockets and drop them without

@@ -366,7 +366,9 @@
 
         <div class="src-drop" id="srcDrop">
             <div class="src-drop-title">or drop your files</div>
-            <div class="src-drop-sub">PDF, Word .docx, or plain text &mdash; read in your browser, never uploaded</div>
+            <div class="src-drop-sub">PDF, Word .docx and plain text are read in your
+            browser and never uploaded. CSV, HTML, ePub, .xlsx and .pptx are converted
+            by your own server.</div>
             <div class="src-actions">
                 <button class="src-btn" id="btnSrcUpload">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
@@ -378,7 +380,7 @@
                 </button>
             </div>
             <input type="file" id="srcFile" multiple hidden
-                   accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
+                   accept=".pdf,.docx,.txt,.md,.csv,.html,.htm,.epub,.xlsx,.pptx">
         </div>
 
         <div class="src-status" id="srcStatus"></div>
