@@ -40,14 +40,18 @@ Two independent web apps sit behind one Caddy reverse proxy:
 ├── Caddyfile.openclaw          Caddy config for all three apps
 ├── Caddyfile.openclaw.bak      Previous version, kept for rollback
 ├── assets/companyLogo.jpeg     LiveContent logo (embedded into both UIs)
-├── kokoro-frontend.html        Voice Studio browser UI (self-contained)
+├── kokoro-frontend.html        Voice Studio browser UI (markup)
+├── kokoro-app.css              Voice Studio styles
+├── kokoro-app.js               Voice Studio behaviour
 ├── kokoro-web/
 │   ├── server.py               Authenticated HTTP bridge to the Kokoro CLI
 │   ├── .env.example            Config template — copy to .env
 │   └── .env                    Local config (gitignored)
 ├── kokoro-tts/                 Kokoro TTS CLI source (upstream, vendored)
 └── openclaw-ui/
-    ├── index.html              LiveContent Studio UI (self-contained)
+    ├── index.html              LiveContent Studio UI (markup)
+    ├── app.css                 LiveContent Studio styles
+    ├── app.js                  LiveContent Studio behaviour
     ├── serve.py                Local dev server (not used in production)
     └── README.md               Studio-specific notes
 ```
@@ -347,15 +351,21 @@ override the file.
 | `KOKORO_PORT` | `8890` | Bind port |
 | `KOKORO_MAX_TEXT_LENGTH` | `5000` | Character cap, Generate tab |
 | `KOKORO_MAX_STREAM_TEXT_LENGTH` | `10000` | Character cap, Stream tab |
-| `KOKORO_FRONTEND` | `/home/ubuntu/kokoro-frontend.html` | UI file served on `GET /` |
+| `KOKORO_FRONTEND` | `/home/ubuntu/kokoro-frontend.html` | UI file served on `GET /`; `kokoro-app.css` and `kokoro-app.js` are served from the same directory |
 | `OPENCLAW_CONFIG` | `/home/ubuntu/.openclaw/openclaw.json` | Where the auth token is read from |
 | `KOKORO_BIN` | `/home/ubuntu/.local/bin/kokoro-tts` | Kokoro CLI executable |
 | `KOKORO_STREAM_CHUNK_TIMEOUT` | `180` | Seconds to wait per streaming chunk |
 | `KOKORO_ENV_FILE` | `kokoro-web/.env` | Alternate location for the env file |
 
-The character limits are also mirrored in `kokoro-frontend.html`
+The character limits are also mirrored in `kokoro-app.js`
 (`MAX_TEXT_LENGTH`, `MAX_STREAM_TEXT_LENGTH`) so the UI can warn before
 sending. **Raise them together**, or the page will allow text the server rejects.
+
+> **Deploying the UIs:** each page now loads a separate stylesheet and script,
+> so copy them alongside the HTML or the page will render unstyled and inert.
+> Voice Studio needs `kokoro-frontend.html`, `kokoro-app.css` and
+> `kokoro-app.js` in the same directory; LiveContent Studio needs
+> `index.html`, `app.css` and `app.js` in `/home/ubuntu/openclaw-ui`.
 
 ### API
 

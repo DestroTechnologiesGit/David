@@ -35,6 +35,11 @@ MAX_TEXT_LENGTH = int(os.environ.get("KOKORO_MAX_TEXT_LENGTH", "5000"))
 # Streaming plays as it generates, so a longer document is practical there.
 MAX_STREAM_TEXT_LENGTH = int(os.environ.get("KOKORO_MAX_STREAM_TEXT_LENGTH", "10000"))
 FRONTEND = Path(os.environ.get("KOKORO_FRONTEND", "/home/ubuntu/kokoro-frontend.html"))
+# The page's stylesheet and script, served from beside the HTML file.
+FRONTEND_ASSETS = {
+    "kokoro-app.css": "text/css; charset=utf-8",
+    "kokoro-app.js": "text/javascript; charset=utf-8",
+}
 OPENCLAW_CONFIG = Path(os.environ.get("OPENCLAW_CONFIG", "/home/ubuntu/.openclaw/openclaw.json"))
 KOKORO = os.environ.get("KOKORO_BIN", "/home/ubuntu/.local/bin/kokoro-tts")
 # How long to wait for the CLI to produce the next chunk before giving up.
@@ -181,7 +186,18 @@ class Handler(BaseHTTPRequestHandler):
         )
 
     def do_GET(self) -> None:
-        if self.path not in ("/", "/index.html"):
+        # Match on the bare filename so no path can escape the frontend's
+        # directory, and so the /kokoro prefix is irrelevant here.
+        name = self.path.split("?", 1)[0].rsplit("/", 1)[-1]
+        content_type = FRONTEND_ASSETS.get(name)
+        if content_type:
+            asset = FRONTEND.parent / name
+            if not asset.is_file():
+                self.send_json_error(404, "Not found")
+                return
+            self.send_bytes(200, asset.read_bytes(), content_type)
+            return
+        if self.path.split("?", 1)[0] not in ("/", "/index.html"):
             self.send_json_error(404, "Not found")
             return
         self.send_bytes(200, FRONTEND.read_bytes(), "text/html; charset=utf-8")
