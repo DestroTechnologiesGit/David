@@ -1,0 +1,78 @@
+// LiveContent data model.
+//
+// A Book is one workspace: its sources, chat messages and notes travel
+// together. SQLite keeps the app self-hosted with no server to run; the
+// schema is plain enough to move to Postgres later by changing `provider`.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Book {
+  id        String   @id @default(cuid())
+  title     String   @default("Untitled book")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sources  Source[]
+  messages Message[]
+  notes    Note[]
+}
+
+model Source {
+  id     String @id @default(cuid())
+  bookId String
+  book   Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  title   String
+  url     String?
+  snippet String?
+  // Extracted document text; absent for plain web results.
+  text    String?
+  // "Web" or "Document" — how the source arrived.
+  kind    String  @default("Web")
+  // Unticked sources stay in the list but are left out of requests.
+  on      Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@index([bookId])
+}
+
+model Message {
+  id     String @id @default(cuid())
+  bookId String
+  book   Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  role     String
+  content  String
+  // Prompts the app wrote for itself: the agent sees them, the user does not.
+  quiet    Boolean @default(false)
+  // The import summary, shown as the book's header rather than a bubble.
+  overview Boolean @default(false)
+  // Shown in place of a long machine-written prompt.
+  display  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([bookId])
+}
+
+model Note {
+  id     String  @id @default(cuid())
+  bookId String?
+  book   Book?   @relation(fields: [bookId], references: [id], onDelete: SetNull)
+
+  title String
+  body  String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([bookId])
+}
