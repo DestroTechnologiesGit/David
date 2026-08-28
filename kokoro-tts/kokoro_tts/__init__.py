@@ -133,14 +133,40 @@ def chunk_text(text, initial_chunk_size=1000):
     
     return chunks
 
+# Kokoro's voice pack ships Spanish and Hindi voices, but kokoro-onnx 0.3.9
+# hardcodes a shorter whitelist and rejects their espeak codes. Both are real
+# espeak-ng languages, so allow them alongside whatever the library reports.
+# Newer kokoro-onnx dropped the whitelist entirely; then this is a no-op.
+EXTRA_LANGUAGES = {
+    "es",      # Spanish (ef_dora, em_alex, em_santa)
+    "es-419",  # Spanish, Latin American
+    "hi",      # Hindi (hf_alpha, hf_beta, hm_omega, hm_psi)
+}
+
+# What kokoro-onnx 0.3.9 reports. Used as the floor when the installed version
+# no longer exposes get_languages, so the older codes stay valid either way.
+BASE_LANGUAGES = {"en-us", "en-gb", "fr-fr", "it", "ja", "cmn"}
+
+
+def supported_languages(kokoro):
+    """Every language code this build accepts, sorted for display."""
+    try:
+        reported = set(kokoro.get_languages())
+    except Exception:
+        # Newer kokoro-onnx has no get_languages and imposes no whitelist.
+        reported = set()
+    return sorted(reported | BASE_LANGUAGES | EXTRA_LANGUAGES)
+
+
 def validate_language(lang, kokoro):
     """Validate if the language is supported."""
     try:
-        supported_languages = set(kokoro.get_languages())  # Get supported languages from Kokoro
-        if lang not in supported_languages:
-            supported_langs = ', '.join(sorted(supported_languages))
-            raise ValueError(f"Unsupported language: {lang}\nSupported languages are: {supported_langs}")
+        supported = supported_languages(kokoro)
+        if lang not in supported:
+            raise ValueError(f"Unsupported language: {lang}\nSupported languages are: {', '.join(supported)}")
         return lang
+    except ValueError:
+        raise
     except Exception as e:
         print(f"Error getting supported languages: {e}")
         sys.exit(1)
@@ -193,7 +219,7 @@ def print_supported_languages(model_path="kokoro-v1.0.onnx", voices_path="voices
     check_required_files(model_path, voices_path)
     try:
         kokoro = Kokoro(model_path, voices_path)
-        languages = sorted(kokoro.get_languages())
+        languages = supported_languages(kokoro)
         print("\nSupported languages:")
         for lang in languages:
             print(f"    {lang}")
