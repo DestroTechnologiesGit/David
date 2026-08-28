@@ -110,19 +110,6 @@
             </div>
             <div id="sourceList"></div>
 
-            <!-- Notebooks (conversations) -->
-            <div class="sidebar-section">
-                <div class="sidebar-head">
-                    <h3>Notebooks</h3>
-                    <div class="sidebar-head-actions">
-                        <button class="icon-btn small" id="btnNewConvo" title="New notebook" aria-label="New notebook">
-                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                        </button>
-                    </div>
-                </div>
-                <div id="convoList"></div>
-            </div>
-
             <div class="sidebar-section">
                 <div class="sidebar-head">
                     <h3>Notes</h3>
@@ -146,6 +133,9 @@
                 <p class="chat-sub" id="chatSub">No sources selected</p>
             </div>
             <div style="display:flex;gap:2px">
+                <button class="icon-btn" id="btnBooks" title="All notebooks" aria-label="All notebooks">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h18v2H3zm0 6h18v2H3zm0 6h12v2H3z"/></svg>
+                </button>
                 <button class="icon-btn" id="btnLibrary" title="All books" aria-label="All books">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h4v16H4zm6 0h3v16h-3zm5.2.6 3.9-1 3.9 14.6-3.9 1z"/></svg>
                 </button>
@@ -230,6 +220,30 @@
 </div>
 
 <!-- ============ ALL NOTES ============ -->
+<div class="notes-page" id="booksPage" hidden>
+    <header class="notes-page-head">
+        <div>
+            <h1>All notebooks</h1>
+            <p id="booksPageCount">No notebooks yet</p>
+        </div>
+        <div class="notes-page-actions">
+            <div class="notes-search">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                <input id="booksFilter" type="text" placeholder="Search notebooks" aria-label="Search notebooks">
+            </div>
+            <button class="icon-btn" id="btnNewConvo" title="New notebook" aria-label="New notebook">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            </button>
+            <button class="icon-btn" id="btnBooksClose" title="Close" aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
+        </div>
+    </header>
+    <div class="notes-page-body">
+        <div class="notes-grid" id="convoList"></div>
+    </div>
+</div>
+
 <div class="notes-page" id="notesPage" hidden>
     <header class="notes-page-head">
         <div>
