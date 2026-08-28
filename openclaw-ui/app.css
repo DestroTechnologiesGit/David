@@ -1902,3 +1902,85 @@ dialog::backdrop { background: rgba(0,0,0,0.4); }
 .note-view-body pre code { background: none; color: inherit; padding: 0; }
 .note-view-body hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
 .note-view-body a { color: var(--accent); }
+
+/* ---------- Source detail (in the Sources pane) ---------- */
+
+.source-detail[hidden] { display: none; }
+
+.sd-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+}
+
+.sd-head .icon-btn { text-decoration: none; }
+
+.sd-title {
+    margin: 16px 0 2px;
+    font-size: 19px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.2px;
+}
+
+.sd-host {
+    margin: 0 0 16px;
+    font-size: 12.5px;
+    color: var(--ink-faint);
+}
+
+.sd-guide {
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: var(--accent-soft);
+    margin-bottom: 16px;
+}
+
+.sd-guide[hidden] { display: none; }
+
+.sd-guide-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.sd-guide-head svg { width: 17px; height: 17px; color: var(--accent); }
+
+.sd-guide-body {
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: var(--ink);
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.sd-guide-body p { margin: 0 0 10px; }
+.sd-guide-body p:last-child { margin-bottom: 0; }
+
+.sd-content {
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--ink-soft);
+    overflow-wrap: anywhere;
+}
+
+.sd-content p { margin: 0 0 12px; }
+.sd-content h1, .sd-content h2, .sd-content h3 { font-size: 15px; margin: 14px 0 6px; color: var(--ink); }
+.sd-content ul, .sd-content ol { margin: 0 0 12px; padding-left: 20px; }
+.sd-content pre {
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #14162e;
+    color: #e6e8f5;
+    overflow-x: auto;
+    font-size: 12px;
+}
+
+.sd-empty { color: var(--ink-faint); }
