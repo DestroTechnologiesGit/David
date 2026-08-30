@@ -42,6 +42,7 @@ API_DOCS = Path(os.environ.get(
 # The page's stylesheet and script, served from beside the HTML file.
 FRONTEND_ASSETS = {
     "kokoro-app.css": "text/css; charset=utf-8",
+    "kokoro-classic.css": "text/css; charset=utf-8",
     "kokoro-app.js": "text/javascript; charset=utf-8",
 }
 OPENCLAW_CONFIG = Path(os.environ.get("OPENCLAW_CONFIG", "/home/ubuntu/.openclaw/openclaw.json"))
