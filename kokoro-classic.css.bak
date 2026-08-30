@@ -84,14 +84,16 @@ h1 {
     border-bottom: 2px solid #f0f0f0;
 }
 
-.card-head {
+.card-head,
+.recent-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
 }
 
-.card-head .card-title {
+.card-head .card-title,
+.recent-head .card-title {
     flex: 1;
 }
 
@@ -280,6 +282,20 @@ input[type="range"]::-moz-range-thumb {
     margin-top: 10px;
 }
 
+.link-btn {
+    background: none;
+    border: none;
+    color: #667eea;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+}
+
+.link-btn:hover {
+    text-decoration: underline;
+}
+
 /* ---- Tabs ---- */
 .tabs {
     display: flex;
@@ -421,6 +437,59 @@ audio {
 
 .file-note.error {
     color: #c62828;
+}
+
+/* ---- Recent generations ---- */
+.recent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.recent-empty {
+    font-size: 13px;
+    color: #666;
+    background: #f5f5f5;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.recent-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+}
+
+.recent-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.recent-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.recent-meta {
+    font-size: 12px;
+    color: #666;
+    margin-top: 2px;
+}
+
+.recent-play {
+    background: none;
+    border: none;
+    color: #667eea;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
 }
 
 /* ---- Footer / help ---- */
