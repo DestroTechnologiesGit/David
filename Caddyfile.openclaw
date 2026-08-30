@@ -1,17 +1,28 @@
 # Caddy config for OpenClaw + Kokoro. See openclaw-ui/README.md.
 51-81-81-208.sslip.io {
+    handle /kokoro {
+        redir * /kokoro/ 308
+    }
+
     handle_path /kokoro/* {
         reverse_proxy 127.0.0.1:8890
     }
 
     # Simplified NotebookLM-style UI.
-    handle /studio* {
+    handle /studio {
+        redir * /studio/ 308
+    }
+
+    handle_path /studio/* {
         root * /home/ubuntu/openclaw-ui
-        # Serve app.css / app.js as themselves; everything else is the page.
-        @asset path /studio/app.css /studio/app.js
-        rewrite @asset /{file.name}
-        rewrite * /index.html
+        header Cache-Control "no-cache, must-revalidate"
+        try_files {path} /index.html
         file_server
+    }
+
+    # Docling conversion for formats the browser cannot parse itself.
+    handle /convert {
+        reverse_proxy 127.0.0.1:18880
     }
 
     # Gateway API for the UI. Same origin, so no CORS setup is needed.

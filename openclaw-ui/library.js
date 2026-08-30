@@ -1,7 +1,7 @@
 /* LiveContent™ library — the book picker.
  *
- * A standalone page: opening a book navigates to index.html rather than
- * revealing a hidden panel. The two pages share state only through
+ * A standalone page: opening a book navigates to its conversation URL rather
+ * than revealing a hidden panel. The two pages share state only through
  * localStorage, so the small helpers below are duplicated from app.js by
  * design rather than imported.
  */
@@ -23,9 +23,58 @@
         try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
     }
 
-    let convos = readJSON(CONVOS, []);
-
     const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+    function slugPart(value) {
+        return String(value || '')
+            .normalize('NFKD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 48) || 'note';
+    }
+
+    function migrateConvos(items) {
+        const used = new Set();
+        let changed = false;
+        const migrated = (Array.isArray(items) ? items : []).map(raw => {
+            const convo = raw && typeof raw === 'object' ? raw : {};
+            if (!convo.id) { convo.id = uid(); changed = true; }
+            if (!convo.title) { convo.title = 'Untitled book'; changed = true; }
+            let slug = convo.slug ? slugPart(convo.slug) : '';
+            if (!slug || used.has(slug)) {
+                const base = slugPart(convo.title || 'conversation');
+                const suffix = String(convo.id).slice(-6).toLowerCase();
+                slug = base + '-' + suffix;
+                let n = 2;
+                while (used.has(slug)) slug = base + '-' + suffix + '-' + n++;
+                changed = true;
+            }
+            convo.slug = slug;
+            used.add(slug);
+            if (!Array.isArray(convo.messages)) { convo.messages = []; changed = true; }
+            if (!Array.isArray(convo.sources)) { convo.sources = []; changed = true; }
+            if (!convo.at) { convo.at = Date.now(); changed = true; }
+            return convo;
+        });
+        return { convos: migrated, changed };
+    }
+
+    const migration = migrateConvos(readJSON(CONVOS, []));
+    let convos = migration.convos;
+    if (migration.changed) writeJSON(CONVOS, convos);
+
+    function makeConvo(title) {
+        const id = uid();
+        const name = title || 'Untitled book';
+        const base = slugPart(name);
+        const suffix = id.slice(-6).toLowerCase();
+        let slug = base + '-' + suffix;
+        let n = 2;
+        while (convos.some(convo => convo.slug === slug)) slug = base + '-' + suffix + '-' + n++;
+        return { id, slug, title: name, messages: [], sources: [], at: Date.now() };
+    }
 
     function escapeHtml(s) {
         return String(s).replace(/[&<>"']/g, ch => (
@@ -83,7 +132,8 @@
         }
         grid.innerHTML = convos.map(c => {
             const count = (c.sources || []).length;
-            const meta = (count ? count + ' source' + (count === 1 ? '' : 's') + ' · ' : '')
+            const meta = '/' + c.slug + ' · '
+                       + (count ? count + ' source' + (count === 1 ? '' : 's') + ' · ' : '')
                        + relativeTime(c.at || Date.now());
             return '<button type="button" class="book" data-id="' + c.id + '">'
                  + '<span class="book-del" data-del="' + c.id + '" role="button" '
@@ -98,11 +148,13 @@
         }).join('');
     }
 
-    // Hand the chosen book to index.html and go there. Relative, so this works
-    // at the root and under a /studio prefix alike.
+    // Store the choice and use the notebook's canonical, shareable URL.
     function openBook(id) {
-        writeJSON(ACTIVE, id);
-        location.href = 'index.html';
+        const book = convos.find(c => c.id === id || c.slug === id);
+        if (!book) return;
+        writeJSON(ACTIVE, book.id);
+        const base = location.pathname.replace(/\/library\.html$/, '').replace(/\/$/, '');
+        location.href = (base || '') + '/conversations/' + encodeURIComponent(book.slug);
     }
 
     grid.addEventListener('click', e => {
@@ -123,7 +175,7 @@
     });
 
     document.getElementById('btnNewBook').addEventListener('click', () => {
-        const c = { id: uid(), title: 'Untitled book', messages: [], sources: [], at: Date.now() };
+        const c = makeConvo('Untitled book');
         convos.unshift(c);
         writeJSON(CONVOS, convos);
         openBook(c.id);
