@@ -36,6 +36,9 @@ UI_FILE = UI_DIR / "index.html"
 STATIC_TYPES = {
     ".css": "text/css; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
+    # PDF.js ships as ES modules; browsers refuse a module served as anything
+    # other than a JavaScript MIME type.
+    ".mjs": "text/javascript; charset=utf-8",
     # library.html is a real second page, so it must be served as itself
     # rather than falling through to index.html.
     ".html": "text/html; charset=utf-8",
@@ -130,14 +133,24 @@ class Handler(BaseHTTPRequestHandler):
         self.send_body(200, UI_FILE.read_bytes(), "text/html; charset=utf-8")
 
     def static_asset(self):
-        """Resolve the request to app.css / app.js next to index.html, or None."""
-        name = urlparse(self.path).path.rsplit("/", 1)[-1]
-        content_type = STATIC_TYPES.get(Path(name).suffix)
+        """Resolve the request to a static file under the UI directory, or None.
+
+        Files sit either next to index.html or in vendor/ (the PDF.js build).
+        The page refers to its assets as /studio/... because that is where Caddy
+        serves them in production; here that prefix is simply stripped.
+        """
+        path = urlparse(self.path).path
+        content_type = STATIC_TYPES.get(Path(path).suffix)
         if not content_type:
             return None
-        # Serve by bare filename only, so no path can escape the UI directory.
-        candidate = UI_DIR / name
-        if candidate.parent != UI_DIR or not candidate.is_file():
+        relative = path.lstrip("/")
+        if relative.startswith("studio/"):
+            relative = relative[len("studio/"):]
+        candidate = (UI_DIR / relative).resolve()
+        # Confine the result to UI_DIR so no "../" can escape it.
+        if not candidate.is_file():
+            return None
+        if UI_DIR.resolve() not in candidate.parents:
             return None
         return candidate, content_type
 

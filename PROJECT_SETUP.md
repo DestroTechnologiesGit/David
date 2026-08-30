@@ -52,6 +52,8 @@ Two independent web apps sit behind one Caddy reverse proxy:
     ├── index.html              LiveContent Studio UI (markup)
     ├── app.css                 LiveContent Studio styles
     ├── app.js                  LiveContent Studio behaviour
+    ├── vendor/                 PDF.js build, used to read PDFs in the browser
+    ├── package.json            Pins the PDF.js version vendor/ is built from
     ├── serve.py                Local dev server (not used in production)
     └── README.md               Studio-specific notes
 ```
@@ -224,10 +226,15 @@ catch-all route.
 
 ```bash
 mkdir -p /home/ubuntu/openclaw-ui
-cp openclaw-ui/index.html /home/ubuntu/openclaw-ui/
+cp openclaw-ui/index.html openclaw-ui/app.css openclaw-ui/app.js \
+   openclaw-ui/library.html openclaw-ui/library.js /home/ubuntu/openclaw-ui/
+# vendor/ holds the PDF.js build that reads PDFs in the browser.
+cp -r openclaw-ui/vendor /home/ubuntu/openclaw-ui/
 ```
 
 `serve.py` is for local development only and is not needed on the server.
+`node_modules/` is not deployed either: npm is only used to fetch PDF.js, and
+the two files that matter are committed under `vendor/`.
 
 ### 2.3 Enable web search
 
@@ -369,7 +376,9 @@ sending. **Raise them together**, or the page will allow text the server rejects
 > so copy them alongside the HTML or the page will render unstyled and inert.
 > Voice Studio needs `kokoro-frontend.html`, `kokoro-app.css` and
 > `kokoro-app.js` in the same directory; LiveContent Studio needs
-> `index.html`, `app.css` and `app.js` in `/home/ubuntu/openclaw-ui`.
+> `index.html`, `app.css`, `app.js` and the `vendor/` directory in
+> `/home/ubuntu/openclaw-ui`. Without `vendor/`, PDF import fails with
+> "Could not load the PDF reader".
 
 ### API
 
