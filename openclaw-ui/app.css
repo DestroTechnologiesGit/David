@@ -30,11 +30,23 @@ body {
 
 /* ---- Three-panel shell ---- */
 .shell {
+    --sources-width: 368px;
+    --studio-width: 340px;
     display: grid;
-    grid-template-columns: 368px minmax(0, 1fr) 340px;
+    grid-template-columns: var(--sources-width) minmax(0, 1fr) var(--studio-width);
     gap: 12px;
     padding: 12px;
     height: 100vh;
+    transition: grid-template-columns 360ms cubic-bezier(.2, .8, .2, 1);
+}
+
+.shell.sources-collapsed { --sources-width: 68px; }
+.shell.studio-collapsed { --studio-width: 68px; }
+
+.shell > .sources,
+.shell > .studio {
+    min-width: 0;
+    transition: max-height 360ms cubic-bezier(.2, .8, .2, 1);
 }
 
 .panel {
@@ -66,6 +78,12 @@ body {
     gap: 12px;
     padding: 20px 20px 16px;
     border-bottom: 1px solid var(--line);
+}
+
+.panel-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
 }
 
 .panel-title {
@@ -106,6 +124,81 @@ body {
 .icon-btn:hover { background: #f1f3f4; }
 .icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .icon-btn svg { width: 20px; height: 20px; display: block; }
+
+.panel-toggle-btn svg {
+    transition: transform 360ms cubic-bezier(.2, .8, .2, 1);
+}
+
+.panel-toggle-btn.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.panel-toggle-btn.active svg { transform: rotateY(180deg); }
+
+/* Compact side rails keep primary actions available without taking over the chat. */
+.sources-rail-resource,
+.studio-rail {
+    display: none;
+}
+
+@media (min-width: 941px) {
+    .shell.sources-collapsed .sources .brand,
+    .shell.sources-collapsed .sources .panel-title,
+    .shell.sources-collapsed .sources #btnSettings,
+    .shell.sources-collapsed .sources #sourceDetail,
+    .shell.sources-collapsed .sources #sourceBrowse {
+        display: none;
+    }
+
+    .shell.sources-collapsed .sources .panel-head {
+        justify-content: center;
+        min-height: 64px;
+        padding: 14px 8px;
+    }
+
+    .shell.sources-collapsed .sources .panel-head-actions { display: block; }
+
+    .shell.sources-collapsed .sources .panel-body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 8px;
+        overflow: hidden;
+    }
+
+    .shell.sources-collapsed .add-source {
+        width: 40px;
+        height: 40px;
+        margin: 0;
+        padding: 0;
+        border-radius: 50%;
+    }
+
+    .shell.sources-collapsed .add-source span { display: none; }
+    .shell.sources-collapsed .sources-rail-resource { display: inline-flex; }
+
+    .shell.studio-collapsed .studio .panel-head {
+        justify-content: center;
+        min-height: 64px;
+        padding: 14px 8px;
+    }
+
+    .shell.studio-collapsed .studio .panel-head > div,
+    .shell.studio-collapsed .studio > .panel-body {
+        display: none !important;
+    }
+
+    .shell.studio-collapsed .studio-rail {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 8px;
+    }
+}
 
 /* ---- Sources ---- */
 .add-source {
@@ -1372,7 +1465,10 @@ dialog::backdrop { background: rgba(0,0,0,0.4); }
 
 /* ---- Responsive ---- */
 @media (max-width: 1180px) {
-    .shell { grid-template-columns: 310px minmax(0, 1fr) 300px; }
+    .shell {
+        --sources-width: 310px;
+        --studio-width: 300px;
+    }
 }
 
 @media (max-width: 940px) {
@@ -1384,6 +1480,71 @@ dialog::backdrop { background: rgba(0,0,0,0.4); }
     }
     .panel.sources, .panel.studio { max-height: 320px; }
     .chat-scroll { min-height: 50vh; }
+
+    .shell.sources-collapsed .sources,
+    .shell.studio-collapsed .studio {
+        flex-direction: row;
+        min-height: 68px;
+        max-height: 68px;
+    }
+
+    .shell.sources-collapsed .sources .brand,
+    .shell.sources-collapsed .sources .panel-title,
+    .shell.sources-collapsed .sources #btnSettings,
+    .shell.sources-collapsed .sources #sourceDetail,
+    .shell.sources-collapsed .sources #sourceBrowse,
+    .shell.studio-collapsed .studio .panel-head > div,
+    .shell.studio-collapsed .studio > .panel-body {
+        display: none !important;
+    }
+
+    .shell.sources-collapsed .sources .panel-head,
+    .shell.studio-collapsed .studio .panel-head {
+        flex: none;
+        justify-content: center;
+        width: 68px;
+        min-height: 68px;
+        padding: 14px 8px;
+        border-right: 1px solid var(--line);
+        border-bottom: none;
+    }
+
+    .shell.sources-collapsed .sources .panel-body {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        overflow: hidden;
+    }
+
+    .shell.sources-collapsed .add-source {
+        width: 40px;
+        height: 40px;
+        margin: 0;
+        padding: 0;
+        border-radius: 50%;
+    }
+
+    .shell.sources-collapsed .add-source span { display: none; }
+    .shell.sources-collapsed .sources-rail-resource { display: inline-flex; }
+    .shell.sources-collapsed .sources .panel-head-actions { display: block; }
+
+    .shell.studio-collapsed .studio-rail {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .shell,
+    .shell > .sources,
+    .shell > .studio,
+    .panel-toggle-btn svg {
+        scroll-behavior: auto;
+        transition-duration: 0.01ms;
+    }
 }
 
 /* ---------- Book library (opening screen) ---------- */
@@ -1727,17 +1888,20 @@ dialog::backdrop { background: rgba(0,0,0,0.4); }
 
 /* ---------- Note editor (in the Studio pane) ---------- */
 
-/* Editing wants room, so the Studio pane doubles while a note is open. */
+/* Editing wants room, unless the Studio pane has been collapsed to its rail. */
 .shell.note-open {
-    grid-template-columns: 368px minmax(0, 1fr) 680px;
+    --studio-width: 680px;
 }
 
+.shell.note-open.studio-collapsed { --studio-width: 68px; }
+
 @media (max-width: 1180px) {
-    .shell.note-open { grid-template-columns: 310px minmax(0, 1fr) 600px; }
+    .shell.note-open { --studio-width: 600px; }
+    .shell.note-open.studio-collapsed { --studio-width: 68px; }
 }
 
 @media (max-width: 940px) {
-    .shell.note-open { grid-template-columns: 1fr; }
+    .shell.note-open { --studio-width: 100%; }
 }
 
 .note-view {
