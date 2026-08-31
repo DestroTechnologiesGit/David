@@ -87,6 +87,11 @@ Run `serve.py` with the Bioformer virtual environment and set
 `BIOFORMER_MODEL=~/models/bioformer-8L` plus `BIOFORMER_LOCAL_ONLY=1`. The
 model is warmed in the background when the service starts.
 
+For scanned-PDF OCR, install `libgl1` on Debian/Ubuntu and install
+`requirements-ocr.txt` into the Python environment configured by
+`DOCLING_PYTHON`. Digital PDFs are still extracted in the browser; only a PDF
+with no embedded text is sent to `/convert` for RapidOCR processing.
+
 ### 1. Enable the chat endpoint
 
 Not enabled by default. Add to `~/.openclaw/openclaw.json`:

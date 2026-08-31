@@ -23,8 +23,8 @@ from urllib.parse import urlparse
 
 API_PREFIX = "/openclaw-api"
 # Docling converts the formats the browser cannot read (CSV, HTML, ePub).
-# Optional: without it those formats are simply refused, and PDF/.docx/.txt
-# keep working in the browser as before.
+# RapidOCR handles the scanned PDFs for which PDF.js finds no text. Both run
+# in the same optional converter environment.
 DOCLING_PYTHON = Path(os.environ.get(
     "DOCLING_PYTHON", Path(__file__).resolve().parent.parent / ".docling-venv" / "bin" / "python"))
 DOCLING_TIMEOUT = float(os.environ.get("DOCLING_TIMEOUT", "180"))
@@ -289,8 +289,8 @@ class Handler(BaseHTTPRequestHandler):
     def convert_document(self) -> None:
         """Convert an uploaded document to Markdown with Docling.
 
-        The page parses PDF, .docx and plain text itself; this handles only
-        what it cannot, so most documents still never leave the browser.
+        The page parses digital PDFs, .docx and plain text itself. Scanned PDFs
+        and formats without a browser parser are sent here as a fallback.
         """
         if not DOCLING_PYTHON.exists():
             self.send_error_json(503, (
@@ -309,7 +309,7 @@ class Handler(BaseHTTPRequestHandler):
 
         # Only the formats the browser cannot parse itself are accepted here,
         # regardless of what a caller claims in the header.
-        allowed = {".csv", ".html", ".htm", ".epub", ".xlsx", ".pptx"}
+        allowed = {".csv", ".html", ".htm", ".epub", ".xlsx", ".pptx", ".pdf"}
         name = self.headers.get("X-Filename", "document")
         suffix = Path(name).suffix.lower()
         if suffix not in allowed:
@@ -323,15 +323,19 @@ class Handler(BaseHTTPRequestHandler):
         with tempfile.TemporaryDirectory(prefix="docling-") as tmp:
             src = Path(tmp) / ("input" + suffix)
             src.write_bytes(payload)
-            script = (
-                "import sys\n"
-                "from docling.document_converter import DocumentConverter\n"
-                "print(DocumentConverter().convert(sys.argv[1])"
-                ".document.export_to_markdown())\n"
-            )
+            if suffix == ".pdf":
+                command = [str(DOCLING_PYTHON), str(UI_DIR / "ocr_pdf.py"), str(src)]
+            else:
+                script = (
+                    "import sys\n"
+                    "from docling.document_converter import DocumentConverter\n"
+                    "print(DocumentConverter().convert(sys.argv[1])"
+                    ".document.export_to_markdown())\n"
+                )
+                command = [str(DOCLING_PYTHON), "-c", script, str(src)]
             try:
                 result = subprocess.run(
-                    [str(DOCLING_PYTHON), "-c", script, str(src)],
+                    command,
                     capture_output=True, text=True, timeout=DOCLING_TIMEOUT)
             except subprocess.TimeoutExpired:
                 self.send_error_json(504, "Converting that document timed out.")
@@ -340,7 +344,8 @@ class Handler(BaseHTTPRequestHandler):
         if result.returncode != 0:
             detail = (result.stderr or "Conversion failed").strip().splitlines()
             # Docling is noisy on stderr; the last line is the useful part.
-            self.send_error_json(422, f"Could not read {name}. {detail[-1][:200]}")
+            action = "OCR" if suffix == ".pdf" else "conversion"
+            self.send_error_json(422, f"Could not read {name} with {action}. {detail[-1][:200]}")
             return
 
         text = result.stdout.strip()
