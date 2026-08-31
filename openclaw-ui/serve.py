@@ -16,6 +16,7 @@ import json
 import os
 import subprocess
 import tempfile
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
@@ -30,6 +31,76 @@ DOCLING_TIMEOUT = float(os.environ.get("DOCLING_TIMEOUT", "180"))
 DOCLING_MAX_BYTES = int(os.environ.get("DOCLING_MAX_BYTES", str(25 * 1024 * 1024)))
 UI_DIR = Path(__file__).resolve().parent
 UI_FILE = UI_DIR / "index.html"
+BIOFORMER_MODEL = os.environ.get("BIOFORMER_MODEL", "bioformers/bioformer-8L")
+BIOFORMER_LABEL = os.environ.get("BIOFORMER_LABEL", "bioformers/bioformer-8L")
+BIOFORMER_MAX_RESULTS = int(os.environ.get("BIOFORMER_MAX_RESULTS", "10"))
+BIOFORMER_MAX_BYTES = int(os.environ.get("BIOFORMER_MAX_BYTES", str(64 * 1024)))
+
+
+class BioformerRanker:
+    """Lazy CPU-only semantic ranker for Health/Clinical search results."""
+
+    def __init__(self, model_name: str) -> None:
+        self.model_name = model_name
+        self._lock = threading.Lock()
+        self._tokenizer = None
+        self._model = None
+        self._torch = None
+
+    def load(self) -> None:
+        if self._model is not None:
+            return
+        with self._lock:
+            if self._model is not None:
+                return
+            import torch
+            from transformers import AutoModel, AutoTokenizer
+
+            # Production is configured with local_files_only after deployment,
+            # so requests never trigger an unexpected model download.
+            local_only = os.environ.get("BIOFORMER_LOCAL_ONLY", "0") == "1"
+            self._tokenizer = AutoTokenizer.from_pretrained(
+                self.model_name, local_files_only=local_only)
+            self._model = AutoModel.from_pretrained(
+                self.model_name, local_files_only=local_only)
+            self._model.eval()
+            self._torch = torch
+
+    def rank(self, query: str, results: list[dict]) -> list[dict]:
+        self.load()
+        texts = [query]
+        for result in results:
+            title = str(result.get("title", ""))
+            snippet = str(result.get("snippet", ""))
+            texts.append(f"{title}. {snippet}".strip())
+
+        encoded = self._tokenizer(
+            texts,
+            padding=True,
+            truncation=True,
+            max_length=256,
+            return_tensors="pt",
+        )
+        with self._lock, self._torch.inference_mode():
+            hidden = self._model(**encoded).last_hidden_state
+            mask = encoded["attention_mask"].unsqueeze(-1).to(hidden.dtype)
+            pooled = (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1)
+            pooled = self._torch.nn.functional.normalize(pooled, p=2, dim=1)
+            scores = (pooled[1:] @ pooled[0]).tolist()
+
+        ranked = []
+        for position, (result, score) in enumerate(zip(results, scores)):
+            item = dict(result)
+            item["healthScore"] = round(float(score), 6)
+            item["originalPosition"] = position
+            ranked.append(item)
+        ranked.sort(key=lambda item: (-item["healthScore"], item["originalPosition"]))
+        for item in ranked:
+            item.pop("originalPosition", None)
+        return ranked
+
+
+BIOFORMER = BioformerRanker(BIOFORMER_MODEL)
 
 # The page's own stylesheet and script. Anything else still falls through to
 # index.html so deep links keep working.
@@ -158,10 +229,62 @@ class Handler(BaseHTTPRequestHandler):
         if self.path.startswith(API_PREFIX):
             self.proxy("POST")
             return
-        if self.path.split("?", 1)[0].rstrip("/") == "/convert":
+        route = self.path.split("?", 1)[0].rstrip("/")
+        if route == "/convert":
             self.convert_document()
             return
+        if route == "/health-rank":
+            self.rank_health_results()
+            return
         self.send_error_json(404, "Not found")
+
+    def rank_health_results(self) -> None:
+        length = int(self.headers.get("Content-Length", "0") or 0)
+        if length <= 0:
+            self.send_error_json(400, "No ranking request was sent.")
+            return
+        if length > BIOFORMER_MAX_BYTES:
+            self.rfile.read(length)
+            self.send_error_json(413, "The ranking request is too large.")
+            return
+
+        try:
+            payload = json.loads(self.rfile.read(length))
+            query = str(payload.get("query", "")).strip()
+            results = payload.get("results")
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+            self.send_error_json(400, "The ranking request is not valid JSON.")
+            return
+
+        if not query:
+            self.send_error_json(400, "A health search query is required.")
+            return
+        if not isinstance(results, list) or not results:
+            self.send_error_json(400, "At least one search result is required.")
+            return
+
+        clean = []
+        for result in results[:BIOFORMER_MAX_RESULTS]:
+            if not isinstance(result, dict):
+                continue
+            clean.append({
+                "title": str(result.get("title", ""))[:200],
+                "url": str(result.get("url", ""))[:2048],
+                "snippet": str(result.get("snippet", ""))[:1000],
+            })
+        if not clean:
+            self.send_error_json(400, "No valid search results were supplied.")
+            return
+
+        try:
+            ranked = BIOFORMER.rank(query, clean)
+        except Exception as exc:  # noqa: BLE001 - surface model startup/runtime errors
+            self.send_error_json(503, f"Bioformer is unavailable: {exc}")
+            return
+        self.send_body(200, json.dumps({
+            "model": BIOFORMER_LABEL,
+            "results": ranked,
+        }).encode("utf-8"), "application/json; charset=utf-8")
 
     def convert_document(self) -> None:
         """Convert an uploaded document to Markdown with Docling.
@@ -265,6 +388,16 @@ def main() -> None:
     httpd = DevServer((args.host, args.port), Handler)
     httpd.gateway = args.gateway.rstrip("/")
     httpd.timeout_s = args.timeout
+
+    if os.environ.get("BIOFORMER_PRELOAD", "1") == "1":
+        def warm_bioformer() -> None:
+            try:
+                BIOFORMER.load()
+                print(f"Bioformer ranker ready  ->  {BIOFORMER_LABEL}", flush=True)
+            except Exception as exc:  # noqa: BLE001 - retry lazily on a request
+                print(f"Bioformer preload failed: {exc}", flush=True)
+
+        threading.Thread(target=warm_bioformer, daemon=True).start()
 
     url = f"http://{args.host}:{args.port}/"
     print(f"LiveContent Studio  ->  {url}")

@@ -74,6 +74,19 @@ No dependencies beyond the Python standard library.
 
 ## Deploying
 
+Install the CPU Bioformer runtime and download the model once:
+
+```bash
+uv venv --python 3.12 ~/.bioformer-venv
+uv pip install --python ~/.bioformer-venv/bin/python -r requirements-health.txt
+~/.bioformer-venv/bin/hf download bioformers/bioformer-8L \
+  --local-dir ~/models/bioformer-8L
+```
+
+Run `serve.py` with the Bioformer virtual environment and set
+`BIOFORMER_MODEL=~/models/bioformer-8L` plus `BIOFORMER_LOCAL_ONLY=1`. The
+model is warmed in the background when the service starts.
+
 ### 1. Enable the chat endpoint
 
 Not enabled by default. Add to `~/.openclaw/openclaw.json`:
@@ -157,6 +170,11 @@ browser's local storage only.
   is no retrieval layer, so very large documents are truncated (20,000
   characters per source) and many ticked sources at once can exceed the model's
   context window. Untick what a question does not need.
+- Health/Clinical search results are semantically ranked on the server with the
+  Apache-2.0 `bioformers/bioformer-8L` biomedical language model. The ranker is
+  CPU-capable and is used only to order evidence; OpenClaw still writes the
+  response. Set `BIOFORMER_MODEL` to a local Hugging Face snapshot path and
+  `BIOFORMER_LOCAL_ONLY=1` in production so requests never download models.
 - Sources live in `localStorage` alongside conversations, so the same per-browser
   limits apply.
 - Web sources show their site's favicon, fetched from Google
