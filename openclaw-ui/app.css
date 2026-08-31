@@ -1351,6 +1351,169 @@ body {
 .src-status.error { color: #c5221f; }
 .src-status.ok { color: #137333; }
 
+/* ---- Audio Overview dialog ---- */
+.audio-dialog {
+    max-width: 720px;
+    max-height: min(90vh, 820px);
+    overflow: hidden;
+}
+
+.audio-dialog form {
+    display: flex;
+    flex-direction: column;
+    max-height: min(90vh, 820px);
+}
+
+.audio-dialog-body {
+    min-height: 0;
+    padding: 20px 24px;
+    overflow-y: auto;
+}
+
+.audio-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.audio-label-row label,
+.audio-field label {
+    display: block;
+    color: var(--ink-soft);
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+.audio-label-row span,
+.audio-label-row output {
+    color: var(--ink-faint);
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+}
+
+.audio-text-field textarea {
+    display: block;
+    width: 100%;
+    min-height: 150px;
+    max-height: 300px;
+    resize: vertical;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ink);
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.audio-text-field textarea:focus,
+.audio-field select:focus,
+.audio-field input:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+}
+
+.audio-options-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 16px;
+    margin-top: 18px;
+}
+
+.audio-field select,
+.audio-field input[type="file"] {
+    display: block;
+    width: 100%;
+    min-height: 42px;
+    margin-top: 6px;
+    padding: 9px 11px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ink);
+    font: inherit;
+    font-size: 13px;
+}
+
+.audio-field input[type="file"] { padding: 7px 9px; }
+.audio-field input[type="file"]::file-selector-button {
+    margin-right: 10px;
+    padding: 6px 10px;
+    border: none;
+    border-radius: 6px;
+    background: #eef0f2;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font: inherit;
+}
+
+.audio-slider-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    margin-top: 20px;
+}
+
+.audio-slider input[type="range"] {
+    display: block;
+    width: 100%;
+    accent-color: var(--accent);
+}
+
+.audio-progress {
+    display: block;
+    width: 100%;
+    height: 5px;
+    margin-top: 20px;
+    border: none;
+    border-radius: 3px;
+    overflow: hidden;
+    accent-color: var(--accent);
+}
+
+.audio-progress[hidden] { display: none; }
+
+.audio-status {
+    min-height: 20px;
+    margin-top: 12px;
+    color: var(--ink-soft);
+    font-size: 12.5px;
+}
+
+.audio-status.error { color: #c5221f; }
+.audio-status.success { color: #137333; }
+
+.audio-result {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.audio-result[hidden] { display: none; }
+.audio-result audio { min-width: 0; flex: 1; height: 40px; }
+.audio-download { text-decoration: none; }
+
+.audio-generate {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.audio-generate svg { width: 16px; height: 16px; }
+
+@media (max-width: 620px) {
+    .audio-options-grid,
+    .audio-slider-grid { grid-template-columns: 1fr; }
+    .audio-dialog-body { padding: 18px; }
+    .audio-result { align-items: stretch; flex-direction: column; }
+    .audio-result audio { width: 100%; flex: none; }
+}
+
 /* ---- Settings dialog ---- */
 dialog {
     border: none;
