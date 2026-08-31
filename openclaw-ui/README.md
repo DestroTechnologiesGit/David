@@ -20,7 +20,9 @@ OpenClaw Control UI, which stays available at its own URL for admin work.
 - **Notes** — saved answers, listed in the left panel under Sources.
   **View all** opens a full-screen page of every note, searchable, each showing
   which conversation it came from; selecting one jumps back to that conversation
-- **Studio** — Audio Overview, wired to the narration service
+- **Studio** — Audio Overview, wired to the narration service, plus translation
+  of the latest assistant answer using a searchable grid of all 183 active
+  ISO 639-1 languages (with simplified and traditional Chinese variants)
 
 ## Why a separate app
 
