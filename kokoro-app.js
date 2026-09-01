@@ -7,6 +7,7 @@ const musicFile = document.getElementById('musicFile');
 const formatSelect = document.getElementById('formatSelect');
 const streamFormatSelect = document.getElementById('streamFormatSelect');
 const speedSelect = document.getElementById('speedSelect');
+const speedValue = document.getElementById('speedValue');
 const charCount = document.getElementById('charCount');
 const tabGenerate = document.getElementById('tabGenerate');
 const tabStream = document.getElementById('tabStream');
@@ -128,6 +129,14 @@ selectMode('generate');
 
 textInput.addEventListener('input', updateCharCount);
 updateCharCount();
+
+function updateSpeedValue() {
+    const speed = parseFloat(speedSelect.value) || 1;
+    speedValue.textContent = speed.toFixed(2) + '\u00d7';
+}
+
+speedSelect.addEventListener('input', updateSpeedValue);
+updateSpeedValue();
 
 // Filter voices based on selected language
 function filterVoicesByLanguage(selectedLang) {
@@ -618,6 +627,7 @@ generateBtn.addEventListener('click', async () => {
 
     if (!token) {
         showStatus('Please enter the API access token', 'error');
+        openTokenDialog();
         return;
     }
 
@@ -696,6 +706,11 @@ generateBtn.addEventListener('click', async () => {
 
     } catch (error) {
         showStatus('Error: ' + error.message, 'error');
+        if (/\b401\b|invalid api access token/i.test(error.message)) {
+            apiToken.value = '';
+            writeStoredToken('');
+            openTokenDialog();
+        }
         console.error(error);
     } finally {
         generateBtn.disabled = false;
@@ -715,9 +730,8 @@ downloadBtn.addEventListener('click', () => {
 });
 
 // ---------- Access token dialog ----------
-// The token is asked for on open rather than left as an empty field the user
-// has to notice. It is stored only if they opt in, and the sidebar input stays
-// the single source of truth that generation reads from.
+// The token is a one-time setup value, kept out of the everyday form. The
+// hidden input remains the single source of truth that generation reads from.
 const TOKEN_KEY = 'kokoro.token.v1';
 const BASE_KEY = 'kokoro.apibase.v1';
 const tokenDialog = document.getElementById('tokenDialog');
@@ -787,16 +801,6 @@ if (tokenDialog && tokenForm) {
     });
 
     tokenCancel.addEventListener('click', () => tokenDialog.close());
-
-    // Re-open from the sidebar field so the token can be changed later.
-    apiToken.addEventListener('focus', () => {
-        if (!apiToken.value.trim()) openTokenDialog();
-    });
-
-    // Editing the sidebar field directly must not leave a stale stored token.
-    apiToken.addEventListener('change', () => {
-        if (readStoredToken()) writeStoredToken(apiToken.value.trim());
-    });
 
     // A stored token fills the field silently; otherwise ask for one.
     const saved = readStoredToken();

@@ -11,13 +11,7 @@
 <div class="app">
 
     <div class="brand">
-        <div class="brand-name">&#127897;&#65039; Text to speech Narration</div>
-        <div class="brand-sub">Create narrated audio with background music mixing</div>
-    </div>
-
-    <div class="info-box">
-        <strong>Private server:</strong> Speech is generated on your own server and never
-        leaves it. Background music is optional and is mixed in your browser.
+        <div class="brand-name">Text to speech Narration</div>
     </div>
 
     <div class="main">
@@ -35,16 +29,12 @@
 
         <main class="content">
             <div class="col">
+                <input type="hidden" id="apiToken">
 
-                <div class="form-group">
-                    <label for="apiToken">Access Token</label>
-                    <input type="password" id="apiToken" placeholder="Paste your access token"
-                           autocomplete="current-password">
-                </div>
-
-                <div class="form-group">
-                    <label for="languageSelect">Language</label>
-                    <select id="languageSelect">
+                <div class="control-row">
+                        <div class="form-group">
+                            <label for="languageSelect">Language</label>
+                            <select id="languageSelect">
                         <option value="en-us">English (American)</option>
                         <option value="en-gb">English (British)</option>
                         <option value="fr-fr">French</option>
@@ -53,12 +43,12 @@
                         <option value="cmn">Chinese (Mandarin)</option>
                         <option value="es">Spanish</option>
                         <option value="hi">Hindi</option>
-                    </select>
-                </div>
+                            </select>
+                        </div>
 
-                <div class="form-group">
-                    <label for="voiceSelect">Voice Selection</label>
-                    <select id="voiceSelect">
+                        <div class="form-group">
+                            <label for="voiceSelect">Voice Selection</label>
+                            <select id="voiceSelect">
 <optgroup label="American English \u2014 Female" data-lang="en-us">
             <option value="af_alloy" data-lang="en-us">Alloy (Female)</option>
             <option value="af_aoede" data-lang="en-us">Aoede (Female)</option>
@@ -147,29 +137,20 @@
             <option value="hm_omega" data-lang="hi">Omega (Male)</option>
             <option value="hm_psi" data-lang="hi">Psi (Male)</option>
         </optgroup>
-            </select>
+                            </select>
+                        </div>
+
+                        <div class="form-group speed-group">
+                            <div class="slider-head">
+                                <label for="speedSelect">Voice Speed</label>
+                                <span class="slider-value" id="speedValue">1.00&times;</span>
+                            </div>
+                            <input type="range" id="speedSelect" min="0.5" max="2"
+                                   step="0.05" value="1" aria-label="Voice speed">
+                        </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="speedSelect">Voice Speed</label>
-                    <select id="speedSelect">
-                        <option value="0.5">0.5&times; &mdash; slowest</option>
-                        <option value="0.6">0.6&times;</option>
-                        <option value="0.7">0.7&times;</option>
-                        <option value="0.8">0.8&times;</option>
-                        <option value="0.9">0.9&times;</option>
-                        <option value="1.0" selected>1.0&times; &mdash; normal</option>
-                        <option value="1.1">1.1&times;</option>
-                        <option value="1.2">1.2&times;</option>
-                        <option value="1.3">1.3&times;</option>
-                        <option value="1.4">1.4&times;</option>
-                        <option value="1.5">1.5&times;</option>
-                        <option value="1.75">1.75&times;</option>
-                        <option value="2.0">2.0&times; &mdash; fastest</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
+                <div class="form-group text-group">
                     <label for="textInput">Enter Text to Narrate</label>
                     <textarea id="textInput" placeholder="Type or paste your text here..."></textarea>
                 </div>
@@ -220,16 +201,6 @@
                     while streaming, because audio plays as it arrives.</p>
                 </div>
 
-                <div class="mode-note" id="modeNote">
-                    <strong>Generate</strong> waits for the whole narration, then gives you a
-                    finished file. Slower to start, but you can mix in background music and
-                    download the result. Up to
-                    <strong><span class="limit-generate">5,000</span> characters</strong>
-                    &mdash; roughly <strong>950 words</strong>, about
-                    <strong>6 to 7 minutes</strong> of speech. The Stream tab allows
-                    <strong><span class="limit-stream">10,000</span></strong>.
-                </div>
-
                 <button class="button" id="generateBtn"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 11h2v2H3zm3.5-4h2v10h-2zM10 9h2v6h-2zm3.5-5h2v16h-2zM17 10h2v4h-2zm3.5-2h2v8h-2z"/></svg><span class="btn-label">Generate Speech</span></button>
 
                 <div class="progress-bar" id="progressBar">
@@ -248,9 +219,6 @@
             </div>
         </main>
 
-        <footer class="footer">
-            <span>&copy; 2026 LiveContent. Speech stays on your own server.</span>
-        </footer>
     </div>
 </div>
 
