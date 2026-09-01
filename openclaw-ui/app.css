@@ -953,8 +953,6 @@ body {
 .studio-tool-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .studio-tool-action:disabled { opacity: 0.5; cursor: default; }
 .studio-tool-action > svg { width: 24px; height: 24px; }
-.audio-tool-action { background: #fce8e6; color: #c5221f; }
-.audio-tool-action:hover:not(:disabled) { background: #f9d9d5; }
 .translate-tool-action { background: #f3e8fd; color: #8430ce; }
 .translate-tool-action:hover:not(:disabled) { background: #ead7fb; }
 
