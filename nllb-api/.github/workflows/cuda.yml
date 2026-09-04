@@ -1,0 +1,22 @@
+name: CUDA
+
+on:
+  pull_request:
+  push:
+    paths:
+      - .github/workflows/cuda.yml
+      - .dockerignore
+      - Dockerfile.build
+      - uv.lock
+      - pyproject.toml
+      - server/**
+      - language/**
+
+jobs:
+  build:
+    uses: winstxnhdw/actions/.github/workflows/docker-build.yml@main
+    with:
+      file: Dockerfile.build
+      cache-mode: min
+      build-args: |
+        USE_CUDA=1

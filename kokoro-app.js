@@ -35,7 +35,7 @@ const MUSIC_FADE_OUT_SECONDS = 2;
 
 // The server caps a single request; mirror both limits here for feedback.
 const MAX_TEXT_LENGTH = 5000;          // Generate tab
-const MAX_STREAM_TEXT_LENGTH = 10000;  // Stream tab
+const MAX_STREAM_TEXT_LENGTH = 5000;   // Stream tab
 
 // The active tab decides which limit applies.
 function currentMaxLength() {
@@ -76,7 +76,7 @@ function modeNoteHtml(streaming) {
         return '<strong>Stream</strong> starts playing as soon as the first few words '
             + 'are ready, instead of waiting for the whole narration. Best for long '
             + 'text and quick previews. Up to <strong>' + str + ' characters</strong> '
-            + '&mdash; about <strong>13 minutes</strong> of speech. Playback is live, '
+            + '&mdash; about <strong>6 to 7 minutes</strong> of speech. Playback is live, '
             + 'so leaving the page stops it; the finished audio still appears below.';
     }
     return '<strong>Generate</strong> waits for the whole narration, then gives you a '

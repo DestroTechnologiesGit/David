@@ -1,0 +1,9 @@
+*.pyc
+*.tar.gz
+.env
+cache/
+.vscode/
+.hypothesis/
+*.egg-info/
+**/target
+models/

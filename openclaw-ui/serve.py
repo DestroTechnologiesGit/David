@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-"""Local dev server for LiveContent Studio.
+"""Python model/document helper and local dev server for LiveContent Studio.
 
-Serves index.html and proxies /openclaw-api/* to the gateway, mirroring what
-Caddy does on the VPS. Same-origin, so the browser's CORS rules are satisfied
-(the gateway sends no CORS headers of its own).
+Serves index.html and proxies /studio-api/* to the private Node.js service.
+Bioformer and document conversion remain here in their native Python runtimes.
 
     python3 serve.py                 # http://127.0.0.1:8080
     python3 serve.py --port 9000
-    python3 serve.py --gateway http://127.0.0.1:18789
+    python3 serve.py --backend http://127.0.0.1:18881
 """
 
 import argparse
@@ -21,7 +20,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-API_PREFIX = "/openclaw-api"
+API_PREFIX = "/studio-api"
 # Docling converts the formats the browser cannot read (CSV, HTML, ePub).
 # RapidOCR handles the scanned PDFs for which PDF.js finds no text. Both run
 # in the same optional converter environment.
@@ -115,6 +114,19 @@ STATIC_TYPES = {
     ".html": "text/html; charset=utf-8",
 }
 
+# Never turn the project directory into a generic file server: it also contains
+# the private Node backend and deployment configuration. Only browser assets
+# named here can be downloaded during local development.
+PUBLIC_ASSETS = {
+    "app.css",
+    "app.js",
+    "index.html",
+    "library.html",
+    "library.js",
+    "vendor/pdf.min.mjs",
+    "vendor/pdf.worker.min.mjs",
+}
+
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
@@ -135,7 +147,7 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---- proxy ---------------------------------------------------------
     def proxy(self, method: str) -> None:
-        target = urlparse(self.server.gateway)
+        target = urlparse(self.server.backend)
         path = self.path[len(API_PREFIX):] or "/"
 
         length = int(self.headers.get("Content-Length", "0") or 0)
@@ -161,7 +173,7 @@ class Handler(BaseHTTPRequestHandler):
             conn.request(method, path, body=payload, headers=headers)
             upstream = conn.getresponse()
         except Exception as exc:                     # noqa: BLE001 - report any transport failure
-            self.send_error_json(502, f"Cannot reach gateway at {self.server.gateway}: {exc}")
+            self.send_error_json(502, f"Cannot reach private Studio API at {self.server.backend}: {exc}")
             return
 
         self.send_response(upstream.status)
@@ -217,6 +229,8 @@ class Handler(BaseHTTPRequestHandler):
         relative = path.lstrip("/")
         if relative.startswith("studio/"):
             relative = relative[len("studio/"):]
+        if relative not in PUBLIC_ASSETS:
+            return None
         candidate = (UI_DIR / relative).resolve()
         # Confine the result to UI_DIR so no "../" can escape it.
         if not candidate.is_file():
@@ -385,13 +399,13 @@ def main() -> None:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", type=int, default=int(os.environ.get("STUDIO_PORT", "8080")))
     ap.add_argument("--host", default="127.0.0.1")
-    ap.add_argument("--gateway", default=os.environ.get("OPENCLAW_GATEWAY", "http://127.0.0.1:18789"))
+    ap.add_argument("--backend", default=os.environ.get("STUDIO_PRIVATE_API", "http://127.0.0.1:18881"))
     ap.add_argument("--timeout", type=float, default=600.0,
-                    help="seconds to wait on the gateway (agent replies can be slow)")
+                    help="seconds to wait on the private API (agent replies can be slow)")
     args = ap.parse_args()
 
     httpd = DevServer((args.host, args.port), Handler)
-    httpd.gateway = args.gateway.rstrip("/")
+    httpd.backend = args.backend.rstrip("/")
     httpd.timeout_s = args.timeout
 
     if os.environ.get("BIOFORMER_PRELOAD", "1") == "1":
@@ -406,11 +420,11 @@ def main() -> None:
 
     url = f"http://{args.host}:{args.port}/"
     print(f"LiveContent Studio  ->  {url}")
-    print(f"proxying {API_PREFIX}/*  ->  {httpd.gateway}")
+    print(f"proxying {API_PREFIX}/*  ->  {httpd.backend}")
     print("\nIn the settings dialog use:")
-    print(f"  Gateway base URL : {API_PREFIX}")
-    print("  Gateway token    : your gateway.auth.token")
-    print("  Agent target     : openclaw/default")
+    print(f"  Server address    : {API_PREFIX}")
+    print("  Studio access key : your STUDIO_ACCESS_TOKEN")
+    print("  Assistant target  : openclaw/studio")
     print("\nCtrl+C to stop.")
     try:
         httpd.serve_forever()

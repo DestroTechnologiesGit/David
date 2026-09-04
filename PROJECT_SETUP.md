@@ -54,7 +54,9 @@ Two independent web apps sit behind one Caddy reverse proxy:
     ├── app.js                  LiveContent Studio behaviour
     ├── vendor/                 PDF.js build, used to read PDFs in the browser
     ├── package.json            Pins the PDF.js version vendor/ is built from
-    ├── serve.py                Local dev server (not used in production)
+    ├── server.js               Private Node.js API; holds credentials and search logic
+    ├── serve.py                Bioformer/document helper plus local dev server
+    ├── studio-api.env.example Node service configuration template
     └── README.md               Studio-specific notes
 ```
 
@@ -169,7 +171,7 @@ sudo systemctl enable --now kokoro-web
 **Stream** — starts playing as soon as the first sentences are ready.
 
 - Output format: **WAV** (gapless) or **MP3** (smaller, ~50 ms gaps between parts)
-- Up to **10,000 characters** (~1,950 words, ~13 min)
+- Up to **5,000 characters** (~950 words, ~6 to 7 min)
 - No background music: mixing needs the finished file
 
 Both tabs share: 43 voices across 6 languages, and document import from
@@ -189,10 +191,9 @@ UI, which stays at `/`.
   picker. Text is extracted in the browser and seeded as context; files are
   never uploaded anywhere.
 - **pasted text**
-- a **research topic** — handed to the agent, which uses its `web_search` tool.
-  There is no separate search backend; the gateway exposes search to agents as
-  a tool, not over HTTP, so the UI asks the agent and parses the JSON it
-  returns.
+- a **research topic** — sent to the private Node.js API, which invokes the
+  agent's `web_search` tool and normalises results without exposing that logic
+  or the OpenClaw owner token to the browser.
 - a **blank conversation**
 
 ### 2.1 Enable the chat endpoint
@@ -230,11 +231,25 @@ cp openclaw-ui/index.html openclaw-ui/app.css openclaw-ui/app.js \
    openclaw-ui/library.html openclaw-ui/library.js /home/ubuntu/openclaw-ui/
 # vendor/ holds the PDF.js build that reads PDFs in the browser.
 cp -r openclaw-ui/vendor /home/ubuntu/openclaw-ui/
+
+# Keep private backend code outside Caddy's static root.
+mkdir -p /home/ubuntu/livecontent-studio-api
+cp openclaw-ui/server.js openclaw-ui/studio-api.env.example \
+   /home/ubuntu/livecontent-studio-api/
+cp /home/ubuntu/livecontent-studio-api/studio-api.env.example \
+   /home/ubuntu/livecontent-studio-api/studio-api.env
+# Put a new `openssl rand -hex 32` value in STUDIO_ACCESS_TOKEN.
+mkdir -p /home/ubuntu/.config/systemd/user
+cp openclaw-ui/livecontent-studio-api.service \
+   /home/ubuntu/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now livecontent-studio-api
 ```
 
-`serve.py` is for local development only and is not needed on the server.
-`node_modules/` is not deployed either: npm is only used to fetch PDF.js, and
-the two files that matter are committed under `vendor/`.
+Run `server.js` as the Node backend on loopback port 18881. The Python helper
+remains on loopback port 18880 for Bioformer, OCR and Docling. `node_modules/`
+is not deployed: the Node backend uses only built-in modules, and the two
+PDF.js browser files are committed under `vendor/`.
 
 ### 2.3 Enable web search
 
@@ -266,13 +281,13 @@ The settings dialog opens on first visit:
 
 | Field | Value |
 | --- | --- |
-| Gateway base URL | `/openclaw-api` |
-| Gateway token | your `gateway.auth.token` |
-| Agent target | `openclaw/default` |
-| Kokoro endpoint | `/kokoro/api/tts` (blank to disable narration) |
+| Server address | `/studio-api` |
+| Studio access key | your separate `STUDIO_ACCESS_TOKEN` |
+| Assistant ID | `openclaw/studio` |
+| Narration service | `/studio-api/tts` (blank to disable narration) |
 
-Select **Test connection** before chatting. Settings live in that browser's
-local storage only, never on the server.
+Select **Test connection** before chatting. The restricted Studio key lives in
+browser local storage. The owner-level gateway credential stays on the server.
 
 ---
 
@@ -286,14 +301,31 @@ Copy `Caddyfile.openclaw` into place, adjusting the domain:
         reverse_proxy 127.0.0.1:8890
     }
 
-    handle /studio* {
+    @studioAsset path /studio/app.css /studio/app.js /studio/library.html /studio/library.js /studio/vendor/*
+    handle @studioAsset {
+        uri strip_prefix /studio
+        root * /home/ubuntu/openclaw-ui
+        file_server
+    }
+
+    handle_path /studio/* {
         root * /home/ubuntu/openclaw-ui
         rewrite * /index.html
         file_server
     }
 
-    handle_path /openclaw-api/* {
-        reverse_proxy 127.0.0.1:18789
+    handle_path /studio-api/* {
+        reverse_proxy 127.0.0.1:18881 {
+            flush_interval -1
+        }
+    }
+
+    handle /v1/* {
+        respond "Not found" 404
+    }
+
+    handle /tools/invoke {
+        respond "Not found" 404
     }
 
     reverse_proxy 127.0.0.1:18789
@@ -307,10 +339,10 @@ caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 sudo systemctl reload caddy
 ```
 
-**Why `/openclaw-api` exists.** The gateway sends no CORS headers, so a browser
-can only call it from the same origin. Routing the API under the same domain
-as the page satisfies that. Pointing the UI straight at `:18789` will be
-blocked by the browser.
+**Why `/studio-api` exists.** Browser code must be downloadable and therefore
+cannot protect proprietary search logic or an owner credential. This route
+exposes only a constrained Node.js API. The raw OpenClaw gateway and the
+Bioformer/Python endpoint remain on loopback and are not routed to Studio.
 
 ---
 
@@ -329,19 +361,22 @@ line up without Caddy.
 
 ### OpenClaw Studio
 
-Opening `index.html` from disk **will not work** — `/openclaw-api` is a Caddy
-route, and the gateway sends no CORS headers. Use the dev server, which
-mirrors what Caddy does:
+Opening `index.html` from disk **will not work** — `/studio-api` is a server
+route. Start the private Node.js service and the Python dev/helper server:
 
 ```bash
 cd openclaw-ui
+STUDIO_ACCESS_TOKEN=local-development-key \
+BIOFORMER_RANK_URL=http://127.0.0.1:8080/health-rank node server.js
+
+# In another terminal
 python3 serve.py              # http://127.0.0.1:8080
 ```
 
-Then open <http://127.0.0.1:8080/> and paste your gateway token. The base URL
-already defaults to `/openclaw-api`.
+Then open <http://127.0.0.1:8080/> and enter `local-development-key`. The server
+address already defaults to `/studio-api`.
 
-Options: `--port 9000`, `--gateway http://otherhost:18789`, `--timeout 900`.
+Options: `--port 9000`, `--backend http://otherhost:18881`, `--timeout 900`.
 Standard library only, no dependencies.
 
 ---
@@ -357,7 +392,7 @@ override the file.
 | `KOKORO_HOST` | `127.0.0.1` | Bind address |
 | `KOKORO_PORT` | `8890` | Bind port |
 | `KOKORO_MAX_TEXT_LENGTH` | `5000` | Character cap, Generate tab |
-| `KOKORO_MAX_STREAM_TEXT_LENGTH` | `10000` | Character cap, Stream tab |
+| `KOKORO_MAX_STREAM_TEXT_LENGTH` | `5000` | Character cap, Stream tab |
 | `KOKORO_FRONTEND` | `/home/ubuntu/kokoro-frontend.html` | UI file served on `GET /`; `kokoro-app.css` and `kokoro-app.js` are served from the same directory |
 | `KOKORO_API_TOKEN` | _(unset)_ | Token callers send as `Authorization: Bearer`. Set this to run the API on any host; without it the token is read from `OPENCLAW_CONFIG` |
 | `KOKORO_CORS_ORIGINS` | `*` | Origins allowed to call the API from a browser; a comma-separated list restricts it, empty disables CORS |
@@ -430,7 +465,11 @@ curl -s -X POST http://127.0.0.1:8890/api/tts \
 # 4. OpenClaw chat endpoint is enabled
 curl -s http://127.0.0.1:18789/v1/models -H "Authorization: Bearer $TOKEN" | head -c 100
 
-# 5. Public routes
+# 5. Restricted Studio API (use the separate value from studio-api.env)
+STUDIO_TOKEN=YOUR_STUDIO_ACCESS_TOKEN
+curl -s http://127.0.0.1:18881/models -H "Authorization: Bearer $STUDIO_TOKEN"
+
+# 6. Public routes
 curl -s -o /dev/null -w '%{http_code}\n' https://YOUR-DOMAIN/kokoro/
 curl -s -o /dev/null -w '%{http_code}\n' https://YOUR-DOMAIN/studio
 ```
@@ -439,10 +478,10 @@ curl -s -o /dev/null -w '%{http_code}\n' https://YOUR-DOMAIN/studio
 
 ## Troubleshooting
 
-**`Could not reach the gateway at /openclaw-api/...`**
-Either the Caddy route is missing, or you opened `index.html` from disk. Use
-`serve.py` locally; check `handle_path /openclaw-api/*` in the Caddyfile on the
-server.
+**`Could not reach the private Studio API`**
+Check `livecontent-studio-api.service`, then verify that Caddy routes
+`/studio-api/*` to loopback port 18881. For local work, start `server.js` before
+`serve.py`.
 
 **`/v1/models` returns HTML instead of JSON**
 `chatCompletions` is not enabled. The HTML is the Control UI catch-all. See
@@ -454,7 +493,7 @@ now handle 8/16/24/32-bit PCM, 32/64-bit float, and MP3 — if this reappears,
 check what the CLI actually wrote: `file chunk_001.*`.
 
 **`Text must contain 1-5000 characters`**
-Over the limit for that tab. The Stream tab allows 10,000. Raise
+Over the limit for that tab. The Stream tab allows 5,000. Raise
 `KOKORO_MAX_TEXT_LENGTH` *and* the matching constant in the HTML.
 
 **Kokoro fails with a model error**
@@ -494,14 +533,14 @@ Worth reviewing before this is exposed to real users.
   valid token on `/v1/chat/completions` is equivalent to owner/operator access,
   not a narrow per-user scope, and that the endpoint should be kept to
   loopback or private ingress.
-- **The current Caddy config exposes the gateway publicly** at
-  `51-81-81-208.sslip.io`, including `/openclaw-api`. Anyone with the token has
-  operator-level access over the internet.
-- **The same token authenticates Kokoro**, so a user given TTS access
-  necessarily holds gateway access too.
-- **Tokens are stored in browser local storage.** On a shared machine, treat
-  the browser profile as holding a credential.
-
-Reducing exposure would mean an IP allowlist on `/openclaw-api`, putting the
-gateway behind Tailscale or a VPN, or adding a separate auth layer in front of
-Caddy. None of these are configured today.
+- **Studio no longer exposes that gateway token.** Node reads it on the host
+  and allowlists only chat, translation, search, document conversion, voice
+  discovery and narration.
+  Caddy does not publish `/openclaw-api` or `/health-rank`.
+- **The browser stores a separate restricted key.** `STUDIO_ACCESS_TOKEN` can
+  use Studio features but is not accepted by OpenClaw itself. Use a long random
+  value and do not reuse the owner token.
+- **Server-side code is the protection boundary.** Minification/uglification is
+  not encryption. Browser UI code remains visible by design; the clinical
+  query strategy, provider invocation, Bioformer hand-off and credentials now
+  remain in Node.js/Python processes bound to loopback.

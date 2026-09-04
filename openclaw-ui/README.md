@@ -1,7 +1,7 @@
 # LiveContent Studio — simplified frontend
 
-A NotebookLM-style three-panel interface, built as a single self-contained
-HTML file. It is presented as a LiveContent product; the OpenClaw name does
+A NotebookLM-style three-panel interface with a static browser UI and a
+restricted Node.js backend. It is presented as a LiveContent product; the OpenClaw name does
 not appear in the UI. It does **not** replace or modify the built-in
 OpenClaw Control UI, which stays available at its own URL for admin work.
 
@@ -16,39 +16,44 @@ OpenClaw Control UI, which stays available at its own URL for admin work.
   be re-grounded without retyping it
 - **Notebooks** — conversations, listed under the sources. Each notebook owns
   its own source list; switching notebooks swaps the sources shown
-- **Chat** — streaming replies from the gateway
+- **Chat** — streaming replies through the private Node.js API
 - **Notes** — saved answers, listed in the left panel under Sources.
   **View all** opens a full-screen page of every note, searchable, each showing
   which conversation it came from; selecting one jumps back to that conversation
-- **Studio** — Audio Overview, wired to the narration service, plus translation
-  of the latest assistant answer using a searchable grid of all 183 active
-  ISO 639-1 languages (with simplified and traditional Chinese variants)
+- **Studio** — Audio Overview and translation of the latest assistant answer.
+  Audio Overview starts in English and automatically translates its narration
+  as soon as another language is selected. Completed translations can also be sent
+  directly to Audio Overview. The same 164 language targets are offered for both
+  tools: Kokoro provides high-quality,
+  downloadable audio for its eight trained languages; Microsoft's online voices
+  provide downloadable MP3/WAV audio for their supported languages; and an
+  installed browser/device voice remains the playback fallback.
 
 ## Why a separate app
 
 The OpenClaw Control UI ships as a prebuilt bundle inside the npm package
 (`/usr/local/lib/node_modules/openclaw/dist/control-ui/`). It has no source in the
 published package and no build script, so it cannot be edited in place — any change
-is overwritten on `npm update`. This app talks to the gateway's documented
-OpenAI-compatible HTTP API instead, so gateway upgrades cannot break it.
+is overwritten on `npm update`. The Node.js service talks to the gateway's
+documented OpenAI-compatible HTTP API. The browser cannot reach the gateway
+directly and never receives its owner-level credential.
 
 ## Testing locally
 
-The page cannot be opened straight from disk. Two things prevent it:
-
-- `/openclaw-api` is a **Caddy route**, so it only exists where Caddy runs.
-- The gateway sends **no CORS headers**, so a browser refuses to call it from
-  any other origin (`file://`, a different port, etc.).
-
-`serve.py` solves both: it serves the page and proxies `/openclaw-api/*` to the
-gateway from the same origin, exactly as Caddy does in production.
+The page cannot be opened straight from disk because `/studio-api` is a
+same-origin server route. Run the private Node service and the
+Python model/document helper together:
 
 ```bash
-# 1. Make sure the chat endpoint is enabled (see step 1 below) and the
-#    gateway is running:
+# 1. Make sure the gateway is running.
 openclaw gateway
 
-# 2. In another terminal:
+# 2. Start the restricted API with a key different from the gateway token.
+cd openclaw-ui
+STUDIO_ACCESS_TOKEN=local-development-key \
+BIOFORMER_RANK_URL=http://127.0.0.1:8080/health-rank node server.js
+
+# 3. In another terminal, serve the UI plus Python helper routes.
 cd openclaw-ui
 python3 serve.py                    # http://127.0.0.1:8080
 ```
@@ -57,14 +62,15 @@ Then open <http://127.0.0.1:8080/> and fill in the settings dialog:
 
 | Field | Value |
 | --- | --- |
-| Gateway base URL | `/openclaw-api` |
-| Gateway token | your `gateway.auth.token` |
-| Agent target | `openclaw/default` |
+| Server address | `/studio-api` |
+| Studio access key | `local-development-key` |
+| Assistant ID | `openclaw/studio` |
+| Narration service | `/studio-api/tts` |
 
 Select **Test connection** first; it should list the available agent targets.
 
-Options: `--port 9000`, `--gateway http://otherhost:18789`, `--timeout 900`.
-No dependencies beyond the Python standard library.
+Python helper options: `--port 9000`, `--backend http://otherhost:18881`,
+`--timeout 900`. The Node service has no runtime npm dependencies.
 
 > Agent replies can take **minutes**. The send button turns into a red Stop
 > button while one is in flight, so a slow reply is cancellable rather than
@@ -85,9 +91,16 @@ uv pip install --python ~/.bioformer-venv/bin/python -r requirements-health.txt
   --local-dir ~/models/bioformer-8L
 ```
 
-Run `serve.py` with the Bioformer virtual environment and set
+Run `serve.py` on loopback port 18880 with the Bioformer virtual environment and set
 `BIOFORMER_MODEL=~/models/bioformer-8L` plus `BIOFORMER_LOCAL_ONLY=1`. The
 model is warmed in the background when the service starts.
+
+Bioformer-8L itself was trained from scratch on biomedical literature only:
+33 million PubMed abstracts (as of 1 February 2021) and one million
+down-sampled PMC full-text articles. Its 32,768-token cased WordPiece
+vocabulary was built from that same Unicode corpus. Studio does not retrain or
+add web text to the model; web results are merely encoded and ranked at request
+time.
 
 For scanned-PDF OCR, install `libgl1` on Debian/Ubuntu and install
 `requirements-ocr.txt` into the Python environment configured by
@@ -118,12 +131,58 @@ curl -sS http://127.0.0.1:18789/v1/models -H "Authorization: Bearer YOUR_TOKEN"
 
 It should list `openclaw/default`.
 
+Translation requests are routed separately to `openclaw/translator`; normal
+chat continues to use `openclaw/studio`. Create that isolated agent once and
+give its workspace translation-only bootstrap instructions:
+
+```bash
+openclaw agents add translator \
+  --workspace ~/.openclaw/workspace-translator \
+  --model madlad/madlad400-3b-mt \
+  --non-interactive
+```
+
+The `madlad` provider is the local OpenAI-compatible service in
+`../madlad-translation`. OpenClaw starts it on demand and stops it after five
+idle minutes. The translator has no skills or external tools; the backend
+preserves common code, URLs, and placeholders and returns
+`NO_TRANSLATABLE_TEXT` for coordinate-only or machine-only input. The UI turns
+that sentinel into a friendly status message.
+
 > **Security.** OpenClaw's own docs state that a valid gateway token on this
 > endpoint is equivalent to **owner/operator access**, not a narrow per-user
 > scope, and that it should be kept to loopback / private ingress. Read
 > `docs/gateway/openai-http-api.md` in the openclaw package before exposing it.
 
-### 2. Serve the page and proxy the API
+### 2. Start the private Node.js API
+
+Create a restricted Studio key and install the included service:
+
+```bash
+mkdir -p /home/ubuntu/livecontent-studio-api
+cp /path/to/project/openclaw-ui/server.js \
+   /path/to/project/openclaw-ui/studio-api.env.example \
+   /home/ubuntu/livecontent-studio-api/
+cd /home/ubuntu/livecontent-studio-api
+cp studio-api.env.example studio-api.env
+# Replace STUDIO_ACCESS_TOKEN with output from: openssl rand -hex 32
+mkdir -p /home/ubuntu/.config/systemd/user
+cp /path/to/project/openclaw-ui/livecontent-studio-api.service \
+   /home/ubuntu/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now livecontent-studio-api
+```
+
+The service reads the gateway owner token from `openclaw.json`; that token is
+never returned to the browser. `STUDIO_ACCESS_TOKEN` is a separate restricted
+key accepted only by the Node routes. The backend allowlists the `studio` and
+`translator` agents, caps request sizes, rate-limits callers, privately invokes
+web search, hands health results to Bioformer on loopback, forwards bounded
+document conversion requests, and proxies Kokoro.
+Keep this directory outside `/home/ubuntu/openclaw-ui`, which is Caddy's public
+static root.
+
+### 3. Serve the page and proxy the restricted API
 
 Copy `index.html` to the server, then in the Caddyfile:
 
@@ -133,16 +192,33 @@ Copy `index.html` to the server, then in the Caddyfile:
         reverse_proxy 127.0.0.1:8890
     }
 
-    # The simplified UI
-    handle /studio* {
+    # Explicit public UI assets; private backend files are never served.
+    @studioAsset path /studio/app.css /studio/app.js /studio/library.html /studio/library.js /studio/vendor/*
+    handle @studioAsset {
+        uri strip_prefix /studio
+        root * /home/ubuntu/openclaw-ui
+        file_server
+    }
+
+    handle_path /studio/* {
         root * /home/ubuntu/openclaw-ui
         rewrite * /index.html
         file_server
     }
 
-    # Gateway API for the UI (same origin, so no CORS)
-    handle_path /openclaw-api/* {
-        reverse_proxy 127.0.0.1:18789
+    # Restricted Studio operations; never expose the raw gateway API here.
+    handle_path /studio-api/* {
+        reverse_proxy 127.0.0.1:18881 {
+            flush_interval -1
+        }
+    }
+
+    handle /v1/* {
+        respond "Not found" 404
+    }
+
+    handle /tools/invoke {
+        respond "Not found" 404
     }
 
     reverse_proxy 127.0.0.1:18789
@@ -151,16 +227,16 @@ Copy `index.html` to the server, then in the Caddyfile:
 
 Reload Caddy, then open `/studio`.
 
-### 3. Configure in the browser
+### 4. Configure in the browser
 
 The settings dialog opens on first visit:
 
 | Field | Value |
 | --- | --- |
-| Gateway base URL | `/openclaw-api` |
-| Gateway token | your `gateway.auth.token` |
-| Agent target | `openclaw/default` |
-| Kokoro endpoint | `/kokoro/api/tts` (blank to disable narration) |
+| Server address | `/studio-api` |
+| Studio access key | the separate `STUDIO_ACCESS_TOKEN` value |
+| Assistant ID | `openclaw/studio` |
+| Narration service | `/studio-api/tts` (blank to disable narration) |
 
 **Test connection** verifies the setup before you chat. Settings live in that
 browser's local storage only.
@@ -169,19 +245,24 @@ browser's local storage only.
 
 - Conversations and notes are stored per browser (`localStorage`); they are not
   synced between devices and clearing site data removes them.
-- The gateway token is held in local storage. On a shared machine, treat the
-  browser profile as holding an operator credential.
-- Audio Overview sends the latest answer to Kokoro, capped at 5,000 characters
-  to match the bridge's limit.
+- The restricted Studio key is held in local storage. It can use Studio
+  features but cannot call arbitrary OpenClaw gateway or administration routes.
+- Audio Overview sends narration to the configured speech service, capped at
+  5,000 characters. Selecting the online multilingual voice sends that narration
+  text to Microsoft's speech service so Studio can return a downloadable file.
 - Sources are attached to each request as a system message, not indexed. There
   is no retrieval layer, so very large documents are truncated (20,000
   characters per source) and many ticked sources at once can exceed the model's
   context window. Untick what a question does not need.
-- Health/Clinical search results are semantically ranked on the server with the
+- Health/Clinical search and ranking logic is server-only. Results are
+  semantically ranked with the
   Apache-2.0 `bioformers/bioformer-8L` biomedical language model. The ranker is
   CPU-capable and is used only to order evidence; OpenClaw still writes the
   response. Set `BIOFORMER_MODEL` to a local Hugging Face snapshot path and
   `BIOFORMER_LOCAL_ONLY=1` in production so requests never download models.
+- Minification or obfuscation is not treated as a security control. UI code is
+  necessarily visible to browsers; credentials and protected orchestration
+  live only in `server.js` on the host.
 - Sources live in `localStorage` alongside conversations, so the same per-browser
   limits apply.
 - Web sources show their site's favicon, fetched from Google

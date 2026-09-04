@@ -1,8 +1,11 @@
 {
   "name": "livecontent-studio-ui",
   "private": true,
-  "description": "PDF.js is the only dependency. The page is served as static files with no build step, so the browser build is committed under vendor/. Run `npm run vendor` after changing the pinned version.",
+  "description": "LiveContent Studio UI and its private Node.js backend-for-frontend. PDF.js is vendored for browser document import.",
   "scripts": {
+    "start": "node server.js",
+    "test": "node --test server.test.js",
+    "check": "node --check server.js && node --check app.js",
     "vendor": "npm install && cp node_modules/pdfjs-dist/legacy/build/pdf.min.mjs node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs vendor/"
   },
   "dependencies": {

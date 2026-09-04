@@ -1,40 +1,55 @@
 # Caddy config for OpenClaw + Kokoro. See openclaw-ui/README.md.
 51-81-81-208.sslip.io {
-    handle /kokoro {
-        redir * /kokoro/ 308
-    }
+	handle /kokoro {
+		redir * /kokoro/ 308
+	}
 
-    handle_path /kokoro/* {
-        reverse_proxy 127.0.0.1:8890
-    }
+	handle_path /kokoro/* {
+		reverse_proxy 127.0.0.1:8890
+	}
 
-    # Simplified NotebookLM-style UI.
-    handle /studio {
-        redir * /studio/ 308
-    }
+	# Simplified NotebookLM-style UI.
+	handle /studio {
+		redir * /studio/ 308
+	}
 
-    handle_path /studio/* {
-        root * /home/ubuntu/openclaw-ui
-        header Cache-Control "no-cache, must-revalidate"
-        try_files {path} /index.html
-        file_server
-    }
+	# Explicit browser-asset allowlist. Files such as serve.py, server.js and
+	# environment/service configuration must never be downloadable.
+	@studioAsset path /studio/app.css /studio/app.js /studio/library.html /studio/library.js /studio/vendor/*
+	handle @studioAsset {
+		uri strip_prefix /studio
+		root * /home/ubuntu/openclaw-ui
+		header Cache-Control "no-cache, must-revalidate"
+		file_server
+	}
 
-    # Docling conversion for formats the browser cannot parse itself.
-    handle /convert {
-        reverse_proxy 127.0.0.1:18880
-    }
+	# Every other Studio path is an application/deep link and receives only
+	# index.html, even if a same-named private file exists in the directory.
+	handle_path /studio/* {
+		root * /home/ubuntu/openclaw-ui
+		header Cache-Control "no-cache, must-revalidate"
+		rewrite * /index.html
+		file_server
+	}
 
-    # Biomedical semantic ranking for Health/Clinical searches.
-    handle /health-rank {
-        reverse_proxy 127.0.0.1:18880
-    }
+	# Restricted backend-for-frontend. It holds the OpenClaw owner token and
+	# exposes only the operations Studio needs; the browser never reaches the
+	# gateway or Bioformer directly.
+	handle_path /studio-api/* {
+		reverse_proxy 127.0.0.1:18881 {
+			flush_interval -1
+		}
+	}
 
-    # Gateway API for the UI. Same origin, so no CORS setup is needed.
-    handle_path /openclaw-api/* {
-        reverse_proxy 127.0.0.1:18789
-    }
+	# Do not let the root Control UI fallback publish raw owner-token APIs.
+	handle /v1/* {
+		respond "Not found" 404
+	}
 
-    # Built-in OpenClaw Control UI stays at the root, untouched.
-    reverse_proxy 127.0.0.1:18789
+	handle /tools/invoke {
+		respond "Not found" 404
+	}
+
+	# Built-in OpenClaw Control UI stays at the root, untouched.
+	reverse_proxy 127.0.0.1:18789
 }

@@ -20,6 +20,18 @@ a `.env` file beside `server.py` — see `.env.example`.
 On start it prints the endpoints, confirms a token is set, and warns if the
 CLI is missing.
 
+For Studio's optional downloadable multilingual voice, install the isolated
+online adapter:
+
+```bash
+uv venv /home/ubuntu/.livecontent-edge-tts-venv
+uv pip install --python /home/ubuntu/.livecontent-edge-tts-venv/bin/python \
+  -r requirements-edge.txt
+```
+
+This voice requires internet access. Narration text is sent to Microsoft's
+speech service only when `voice` is set to `edge:auto`.
+
 > The CLI needs its model files (`kokoro-v1.0.onnx`, `voices-v1.0.bin`) in its
 > working directory. `GET /api/health` reports whether the CLI was found, but
 > not whether the models are in place — a missing model shows up as a failed
@@ -63,9 +75,9 @@ authenticating.
 
 | Field | Required | Default | Notes |
 | --- | --- | --- | --- |
-| `text` | yes | — | 1–5,000 characters (10,000 when streaming) |
-| `voice` | no | `af_sarah` | See `/api/voices` |
-| `language` | no | `en-us` | Must match the voice's language |
+| `text` | yes | — | 1–5,000 characters |
+| `voice` | no | `af_sarah` | See `/api/voices`; use `edge:auto` for downloadable online multilingual speech |
+| `language` | no | `en-us` | Must match a Kokoro voice, or select the desired online language with `edge:auto` |
 | `speed` | no | `1.0` | 0.5–2.0 |
 | `format` | no | `wav` | `wav` or `mp3` |
 
@@ -82,7 +94,7 @@ curl -X POST http://your-host:8890/api/tts \
 ### POST /api/tts/stream
 
 Same request shape, but audio arrives chunked as it is generated, so playback
-can start before synthesis finishes. Allows 10,000 characters. Chunks are
+can start before synthesis finishes. Allows 5,000 characters. Chunks are
 joined into one continuous file, so the response is still a single valid audio
 file if you save it.
 
@@ -110,6 +122,11 @@ MP3 chunks do not join seamlessly — expect small gaps between segments. Use
 
 Pair a voice with its own language — `ef_dora` with `es`, `hf_alpha` with `hi`.
 A mismatched pair produces bad pronunciation rather than an error.
+
+When the optional online adapter is available, this response also includes
+`"online_voice": "edge:auto"` and an `online_languages` array. Use that voice
+with `POST /api/tts` to receive a downloadable MP3 or WAV. It is intentionally
+not supported by the streaming endpoint.
 
 ## Errors
 

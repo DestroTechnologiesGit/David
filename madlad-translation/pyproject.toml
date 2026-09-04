@@ -1,0 +1,22 @@
+[project]
+name = "livecontent-madlad-translation"
+version = "0.1.0"
+description = "OpenAI-compatible MADLAD-400 translation service for OpenClaw"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "ctranslate2>=4.6.1,<5",
+  "fastapi>=0.115,<1",
+  "huggingface-hub>=0.34,<2",
+  "sentencepiece>=0.2,<1",
+  "uvicorn[standard]>=0.35,<1",
+]
+
+[dependency-groups]
+dev = [
+  "httpx>=0.28,<1",
+  "pytest>=8,<9",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

@@ -1,0 +1,94 @@
+[project]
+name = "nllb-api"
+version = "4.2.0"
+description = "A fast CPU-based API for NLLB"
+requires-python = ">=3.13.7, <3.14"
+dependencies = [
+    "ctranslate2>=4.6.1",
+    "fasttext>=0.9.3",
+    "fastapi>=0.115.14",
+    "uvicorn[standard]>=0.35.0",
+    "pydantic-settings>=2.11.0",
+    "tokenizers>=0.22.1",
+    "aiohttp>=3.13.2",
+    "language",
+    "opentelemetry-instrumentation-fastapi>=0.45b0",
+    "opentelemetry-exporter-otlp-proto-http>=1.38.0",
+    "opentelemetry-exporter-prometheus>=0.55b1",
+    "prometheus-client>=0.20.0",
+    "sse-starlette>=2.1.0",
+    "opentelemetry-instrumentation-system-metrics>=0.58b0",
+    "pytest-env>=1.2.0",
+    "structlog>=24.1.0",
+]
+
+[project.optional-dependencies]
+cuda = ["nvidia-cublas-cu12>=12.9.1.4"]
+
+[project.scripts]
+nllb-api = "server:main"
+run = "server:main"
+nllb-api-stub = "server.scripts:stub"
+nllb-api-cuda = "server.scripts:cuda"
+docker-cpu = "server.scripts:cpu"
+docker-gpu = "server.scripts:gpu"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "hypothesis>=6.147.0",
+    "nodejs-wheel-binaries>=22.20.0",
+    "pyright>=1.1.407",
+    "pytest>=8.4.2",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.14.4",
+]
+
+[build-system]
+requires = ["uv_build"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+module-name = "server"
+source-exclude = ["**/typings"]
+
+[tool.uv.sources]
+language = { path = "language" }
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "D",
+    "Q",
+    "TC",
+    "ANN001",
+    "ANN002",
+    "PLC0414",
+    "INP001",
+    "S104",
+    "S603",
+    "PYI001",
+    "COM812",
+    "SLF001",
+    "PT013",
+    "PLR0913",
+]
+
+[tool.pyright]
+stubPath = "server/typings"
+typeCheckingMode = "strict"
+reportUnknownVariableType = false
+reportUnknownMemberType = false
+reportMissingTypeStubs = false
+reportPrivateUsage = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+addopts = "-n auto --dist loadscope"
+
+[tool.pytest_env]
+TESTING = "True"

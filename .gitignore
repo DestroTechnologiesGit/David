@@ -24,6 +24,9 @@ env/
 kokoro-tts/kokoro-v1.0.onnx
 kokoro-tts/voices-v1.0.bin
 
+# Local translation model weights are too large for the GitHub repository.
+/madlad-translation/model/model.bin
+
 .env
 kokoro-web/.env
 

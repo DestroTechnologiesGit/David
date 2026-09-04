@@ -34,7 +34,7 @@ HOST = os.environ.get("KOKORO_HOST", "127.0.0.1")
 PORT = int(os.environ.get("KOKORO_PORT", "8890"))
 MAX_TEXT_LENGTH = int(os.environ.get("KOKORO_MAX_TEXT_LENGTH", "5000"))
 # Streaming plays as it generates, so a longer document is practical there.
-MAX_STREAM_TEXT_LENGTH = int(os.environ.get("KOKORO_MAX_STREAM_TEXT_LENGTH", "10000"))
+MAX_STREAM_TEXT_LENGTH = int(os.environ.get("KOKORO_MAX_STREAM_TEXT_LENGTH", "5000"))
 FRONTEND = Path(os.environ.get("KOKORO_FRONTEND", "/home/ubuntu/kokoro-frontend.html"))
 # API reference served at /docs. Ships beside this file.
 API_DOCS = Path(os.environ.get(
@@ -54,6 +54,24 @@ CONTENT_TYPES = {"wav": "audio/wav", "mp3": "audio/mpeg"}
 # any origin; empty disables CORS entirely (same-origin use only).
 DEFAULT_VOICE = os.environ.get("KOKORO_DEFAULT_VOICE", "af_sarah")
 DEFAULT_LANGUAGE = os.environ.get("KOKORO_DEFAULT_LANGUAGE", "en-us")
+EDGE_VOICE = "edge:auto"
+EDGE_TTS_PYTHON = Path(os.environ.get(
+    "EDGE_TTS_PYTHON", "/home/ubuntu/.livecontent-edge-tts-venv/bin/python"))
+EDGE_TTS_HELPER = Path(os.environ.get(
+    "EDGE_TTS_HELPER", Path(__file__).resolve().parent / "edge_tts_helper.py"))
+FFMPEG = shutil.which("ffmpeg")
+# Base language codes currently exposed by the installed edge-tts voice catalog.
+# Keeping this local makes Studio's voice picker instant; synthesis still verifies
+# the requested language against the live catalog before creating the file.
+EDGE_LANGUAGES = sorted({
+    "af", "am", "ar", "az", "bg", "bn", "bs", "ca", "cs", "cy", "da", "de",
+    "el", "en", "es", "et", "fa", "fi", "fil", "fr", "ga", "gl", "gu", "he",
+    "hi", "hr", "hu", "id", "is", "it", "iu", "ja", "jv", "ka", "kk", "km",
+    "kn", "ko", "lo", "lt", "lv", "mk", "ml", "mn", "mr", "ms", "mt", "my",
+    "nb", "ne", "nl", "pl", "ps", "pt", "ro", "ru", "si", "sk", "sl", "so",
+    "sq", "sr", "su", "sv", "sw", "ta", "te", "th", "tr", "uk", "ur", "uz",
+    "vi", "zh", "zu",
+})
 
 # The voice inventory, grouped by the language code each voice is trained
 # for. Mirrors kokoro-tts; /api/voices serves it so callers need not hardcode.
@@ -77,6 +95,48 @@ CORS_ORIGINS = [
     o.strip() for o in os.environ.get("KOKORO_CORS_ORIGINS", "*").split(",") if o.strip()
 ]
 SYNTHESIS_LOCK = threading.Lock()
+
+
+def edge_tts_available() -> bool:
+    """Return whether the isolated online speech adapter can be launched."""
+    return EDGE_TTS_PYTHON.is_file() and EDGE_TTS_HELPER.is_file()
+
+
+def edge_language_codes() -> list[str]:
+    """Return downloadable online voice languages without a network lookup."""
+    return EDGE_LANGUAGES if edge_tts_available() else []
+
+
+def synthesize_edge_tts(text_path: Path, output_path: Path, language: str,
+                        speed: float, audio_format: str) -> None:
+    """Generate downloadable online speech, converting MP3 to WAV if requested."""
+    if not edge_tts_available():
+        raise RuntimeError("The downloadable multilingual voice is not installed")
+    edge_output = output_path if audio_format == "mp3" else output_path.with_suffix(".edge.mp3")
+    result = subprocess.run(
+        [str(EDGE_TTS_PYTHON), str(EDGE_TTS_HELPER),
+         "--text-file", str(text_path), "--output", str(edge_output),
+         "--language", language, "--speed", str(speed)],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    if result.returncode != 0 or not edge_output.is_file():
+        detail = (result.stderr or result.stdout or "Online speech synthesis failed")[-1000:]
+        raise RuntimeError(detail)
+    if audio_format == "wav":
+        if not FFMPEG:
+            raise RuntimeError("ffmpeg is required to create downloadable WAV audio")
+        conversion = subprocess.run(
+            [FFMPEG, "-v", "error", "-y", "-i", str(edge_output),
+             "-acodec", "pcm_s16le", str(output_path)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if conversion.returncode != 0 or not output_path.is_file():
+            detail = (conversion.stderr or conversion.stdout or "WAV conversion failed")[-1000:]
+            raise RuntimeError(detail)
 
 
 def parse_wav(data: bytes) -> tuple[dict, bytes]:
@@ -506,6 +566,7 @@ class Handler(BaseHTTPRequestHandler):
                 "status": "ok" if resolved else "degraded",
                 "cli": resolved or KOKORO,
                 "cli_present": bool(resolved),
+                "online_tts_present": edge_tts_available(),
             })
             return
 
@@ -515,6 +576,8 @@ class Handler(BaseHTTPRequestHandler):
                 "voices": VOICES,
                 "default_voice": DEFAULT_VOICE,
                 "default_language": DEFAULT_LANGUAGE,
+                "online_voice": EDGE_VOICE,
+                "online_languages": edge_language_codes(),
             })
             return
 
@@ -565,6 +628,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json_error(400, str(exc))
             return
 
+        if streaming and voice == EDGE_VOICE:
+            self.send_json_error(400, "The online multilingual voice supports complete downloads only")
+            return
         if streaming:
             self.stream_synthesis(text, voice, language, speed, audio_format)
             return
@@ -574,18 +640,21 @@ class Handler(BaseHTTPRequestHandler):
                 input_path = Path(tmp) / "input.txt"
                 output_path = Path(tmp) / f"speech.{audio_format}"
                 input_path.write_text(text, encoding="utf-8")
-                result = subprocess.run(
-                    [KOKORO, str(input_path), str(output_path), "--lang", language,
-                     "--voice", voice, "--speed", str(speed),
-                     "--format", audio_format],
-                    cwd=tmp,
-                    capture_output=True,
-                    text=True,
-                    timeout=300,
-                )
-                if result.returncode != 0 or not output_path.exists():
-                    detail = (result.stderr or result.stdout or "Synthesis failed")[-1000:]
-                    raise RuntimeError(detail)
+                if voice == EDGE_VOICE:
+                    synthesize_edge_tts(input_path, output_path, language, speed, audio_format)
+                else:
+                    result = subprocess.run(
+                        [KOKORO, str(input_path), str(output_path), "--lang", language,
+                         "--voice", voice, "--speed", str(speed),
+                         "--format", audio_format],
+                        cwd=tmp,
+                        capture_output=True,
+                        text=True,
+                        timeout=300,
+                    )
+                    if result.returncode != 0 or not output_path.exists():
+                        detail = (result.stderr or result.stdout or "Synthesis failed")[-1000:]
+                        raise RuntimeError(detail)
                 audio = output_path.read_bytes()
             self.send_bytes(200, audio, CONTENT_TYPES[audio_format])
         except subprocess.TimeoutExpired:

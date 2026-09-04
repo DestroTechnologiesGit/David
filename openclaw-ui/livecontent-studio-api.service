@@ -1,0 +1,16 @@
+[Unit]
+Description=LiveContent Studio private Node.js API
+After=network.target openclaw-gateway.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/livecontent-studio-api
+EnvironmentFile=/home/ubuntu/livecontent-studio-api/studio-api.env
+ExecStart=/usr/bin/node /home/ubuntu/livecontent-studio-api/server.js
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+UMask=0077
+
+[Install]
+WantedBy=default.target

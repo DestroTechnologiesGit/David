@@ -1,0 +1,24 @@
+name: Client
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/client.yml
+      - client/**
+
+jobs:
+  install:
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, '3.10', 3.11, 3.12, 3.13, 3.14]
+        runs-on: [ubuntu, macos, windows]
+    uses: winstxnhdw/actions/.github/workflows/uv.yml@main
+    with:
+      working-directory: client
+      python-version: ${{ matrix.python-version }}
+      runs-on: ${{ matrix.runs-on }}-latest
+      disable-test: true
+      install-project: true
+
