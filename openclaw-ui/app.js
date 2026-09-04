@@ -2756,6 +2756,7 @@
     };
     let sourceScope = readJSON(SOURCE_SCOPE, 'web');
     if (!SCOPE_META[sourceScope]) sourceScope = 'web';
+    let activeHealthProfile = null;
 
     function setSearchStatus(text, kind) {
         elSearchStatus.textContent = text;
@@ -2771,9 +2772,11 @@
         });
 
         const isFiles = sourceScope === 'files';
-        $('panelQuery').hidden = isFiles;
+        const isHealth = sourceScope === 'health';
+        $('panelQuery').hidden = isFiles || isHealth;
         $('panelUpload').hidden = !isFiles;
-        $('btnPanelSearch').hidden = isFiles;
+        $('panelHealth').hidden = !isHealth;
+        $('btnPanelSearch').hidden = isFiles || isHealth;
         $('panelQuery').placeholder = SCOPE_META[sourceScope].placeholder;
         $('panelQuery').setAttribute('aria-label', sourceScope === 'health'
             ? 'Search trusted health and clinical sources'
@@ -2782,6 +2785,7 @@
 
         if (focusField) {
             if (isFiles) $('btnPanelUpload').focus();
+            else if (isHealth) openHealthDialog();
             else $('panelQuery').focus();
         }
     }
@@ -2792,6 +2796,118 @@
         });
     });
     setSourceScope(sourceScope, false);
+
+    function healthProfile() {
+        const audience = document.querySelector('input[name="healthAudience"]:checked');
+        return {
+            audience: audience ? audience.value : 'provider',
+            date: $('healthDate').value,
+            region: $('healthRegion').value,
+            evidence: $('healthEvidence').value,
+            purpose: $('healthPurpose').value,
+            collections: Array.from(document.querySelectorAll('.health-collections input:checked'))
+                .map(input => input.value),
+        };
+    }
+
+    function updateHealthPreferenceSummary() {
+        const date = $('healthDate').selectedOptions[0].textContent;
+        const region = $('healthRegion').selectedOptions[0].textContent;
+        const evidence = $('healthEvidence').selectedOptions[0].textContent;
+        $('healthPreferenceSummary').textContent = date + ' · ' + region + ' · ' + evidence;
+    }
+
+    function setHealthStatus(text, kind) {
+        $('healthStatus').textContent = text || '';
+        $('healthStatus').className = 'health-status' + (kind ? ' ' + kind : '');
+    }
+
+    function openHealthDialog() {
+        if ($('panelQuery').value.trim() && !$('healthQuery').value.trim()) {
+            $('healthQuery').value = $('panelQuery').value.trim();
+        }
+        setHealthStatus('');
+        updateHealthPreferenceSummary();
+        if (!$('dlgHealth').open) $('dlgHealth').showModal();
+        setTimeout(() => $('healthQuery').focus(), 0);
+    }
+
+    function closeHealthDialog() {
+        if ($('dlgHealth').open) $('dlgHealth').close();
+    }
+
+    function scopedHealthSearchQuery(query) {
+        const profile = activeHealthProfile || healthProfile();
+        const filters = [
+            profile.date !== 'any' ? profile.date : '',
+            profile.region !== 'global' ? profile.region : '',
+            profile.evidence,
+            profile.collections.join(' '),
+            'audience ' + profile.audience,
+            'purpose ' + profile.purpose,
+        ].filter(Boolean).join(' ');
+        return query + ' ' + filters;
+    }
+
+    $('btnPanelHealth').addEventListener('click', openHealthDialog);
+    $('btnHealthClose').addEventListener('click', closeHealthDialog);
+    $('btnHealthCancel').addEventListener('click', closeHealthDialog);
+
+    document.querySelectorAll('[data-health-question]').forEach(button => {
+        button.addEventListener('click', () => {
+            $('healthQuery').value = button.dataset.healthQuestion;
+            setHealthStatus('');
+            $('healthQuery').focus();
+        });
+    });
+
+    ['healthDate', 'healthRegion', 'healthEvidence'].forEach(id => {
+        $(id).addEventListener('change', updateHealthPreferenceSummary);
+    });
+
+    $('healthQuery').addEventListener('keydown', event => {
+        if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+            event.preventDefault();
+            $('healthForm').requestSubmit();
+        }
+    });
+
+    $('healthForm').addEventListener('submit', async event => {
+        event.preventDefault();
+        const query = $('healthQuery').value.trim();
+        if (query.length < 8) {
+            setHealthStatus('Add a little more detail so we can identify the right evidence.', 'error');
+            $('healthQuery').focus();
+            return;
+        }
+        const profile = healthProfile();
+        if (!profile.collections.length) {
+            setHealthStatus('Choose at least one evidence collection.', 'error');
+            return;
+        }
+        if (!state.token) {
+            closeHealthDialog();
+            openSettings('Add your Studio access key to search.');
+            return;
+        }
+
+        activeHealthProfile = profile;
+        $('panelQuery').value = query;
+        const button = $('btnHealthSearch');
+        const label = button.querySelector('span');
+        button.disabled = true;
+        label.textContent = 'Reviewing evidence…';
+        setHealthStatus('Searching and ranking trusted clinical sources…');
+        const ok = await runSearch(query, 'health');
+        button.disabled = false;
+        label.textContent = 'Search trusted evidence';
+        if (ok) {
+            setHealthStatus('Evidence found. Opening the source list…');
+            closeHealthDialog();
+        } else {
+            setHealthStatus(elSearchStatus.textContent || 'Search could not be completed.', 'error');
+        }
+    });
 
     function hostOf(url) {
         try { return new URL(url).hostname.replace(/^www\./, ''); }
@@ -2846,8 +2962,9 @@
     }
 
     async function runSearch(query, scope) {
-        if (!state.token) { openSettings('Add your Studio access key to search.'); return; }
+        if (!state.token) { openSettings('Add your Studio access key to search.'); return false; }
         const chosenScope = SCOPE_META[scope] && scope !== 'files' ? scope : 'web';
+        const requestQuery = chosenScope === 'health' ? scopedHealthSearchQuery(query) : query;
         lastQuery = query;
         lastScope = chosenScope;
         elResults.hidden = true;
@@ -2862,7 +2979,7 @@
                     'Content-Type': 'application/json',
                     'Authorization': 'Bearer ' + state.token,
                 },
-                body: JSON.stringify({ query, scope: chosenScope }),
+                body: JSON.stringify({ query: requestQuery, scope: chosenScope }),
             });
             const json = await res.json().catch(() => null);
             if (!res.ok) {
@@ -2881,8 +2998,10 @@
             renderResults();
             elResults.hidden = false;
             setSearchStatus('');
+            return true;
         } catch (err) {
             setSearchStatus(err.message, 'error');
+            return false;
         } finally {
             $('btnPanelSearch').disabled = false;
         }
