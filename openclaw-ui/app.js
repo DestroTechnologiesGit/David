@@ -3900,7 +3900,7 @@
         }, 1400);
     }
 
-    // Save to note on the overview panel, mirroring the sidebar's + button.
+    // Save to completed resources on the overview panel, mirroring the sidebar's + button.
     el.nbOverview.addEventListener('click', e => {
         if (!e.target.closest('#btnOverviewNote')) return;
         const c = activeConvo();
