@@ -1651,10 +1651,15 @@
             return;
         }
 
-        translationSourceText = String(last.content);
+        const fullTranslationSource = toPlainText(String(last.content));
+        // Keep translation requests within the model budget by using the
+        // ending of long answers, which usually contains the conclusion.
+        translationSourceText = fullTranslationSource.length > 5000
+            ? fullTranslationSource.slice(-5000)
+            : fullTranslationSource;
         translatedText = '';
         translatedLanguageCode = '';
-        $('translateSource').value = toPlainText(translationSourceText);
+        $('translateSource').value = translationSourceText;
         $('translateLanguageSearch').value = '';
         $('translateLanguageField').classList.remove('collapsed');
         filterTranslationLanguages();
