@@ -1094,7 +1094,7 @@
         const options = voices.map(voice => ({ value: voice, label: audioVoiceLabel(voice) }));
         if (onlineAudioAvailable(language)) options.push({
             value: AUDIO_ONLINE_VOICE,
-            label: 'Online multilingual voice — downloadable',
+            label: 'LIVE Voice',
         });
         browserVoices.forEach(voice => options.push({
             value: AUDIO_BROWSER_PREFIX + voice.voiceURI,
