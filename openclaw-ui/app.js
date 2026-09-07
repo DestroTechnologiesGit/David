@@ -2875,7 +2875,8 @@
         const isHealth = sourceScope === 'health';
         $('panelQuery').hidden = isFiles || isHealth;
         $('panelUpload').hidden = !isFiles;
-        $('panelHealth').hidden = !isHealth;
+        const healthPanel = $('panelHealth');
+        if (healthPanel) healthPanel.hidden = !isHealth;
         $('btnPanelSearch').hidden = isFiles || isHealth;
         $('panelQuery').placeholder = SCOPE_META[sourceScope].placeholder;
         $('panelQuery').setAttribute('aria-label', sourceScope === 'health'
@@ -3167,7 +3168,8 @@
         }
     }
 
-    $('btnPanelHealth').addEventListener('click', openHealthDialog);
+    const panelHealthButton = $('btnPanelHealth');
+    if (panelHealthButton) panelHealthButton.addEventListener('click', openHealthDialog);
     $('btnHealthClose').addEventListener('click', closeHealthDialog);
     $('btnHealthNew').addEventListener('click', resetHealthChat);
 
