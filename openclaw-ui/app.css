@@ -1602,7 +1602,7 @@ body {
     grid-row: 2;
     justify-self: start;
     position: relative;
-    width: min(300px, 44vw);
+    width: 42px;
     margin: 0;
     border: 0;
     background: transparent;
@@ -1614,7 +1614,7 @@ body {
     align-items: flex-start;
     flex-direction: column;
     gap: 1px;
-    padding: 7px 10px 7px 25px;
+    padding: 7px 10px;
     border: 1px solid #d3e2e2;
     border-radius: 10px;
     background: #fbfdfd;
@@ -1627,6 +1627,11 @@ body {
     gap: 6px;
 }
 
+.health-advanced-label > span:last-child,
+.health-advanced-search summary small {
+    display: none;
+}
+
 .health-advanced-icon {
     width: 14px;
     height: 14px;
@@ -1635,17 +1640,22 @@ body {
 }
 
 .health-advanced-search summary::before {
-    position: absolute;
-    top: 8px;
-    left: 10px;
-    content: "+";
-    color: #087f77;
-    font-size: 15px;
-    line-height: 1;
+    display: none;
 }
 
-.health-advanced-search[open] summary::before {
-    transform: rotate(45deg);
+.health-advanced-search:hover,
+.health-advanced-search:focus-within,
+.health-advanced-search[open] {
+    width: min(300px, 44vw);
+}
+
+.health-advanced-search:hover .health-advanced-label > span:last-child,
+.health-advanced-search:focus-within .health-advanced-label > span:last-child,
+.health-advanced-search[open] .health-advanced-label > span:last-child,
+.health-advanced-search:hover summary small,
+.health-advanced-search:focus-within summary small,
+.health-advanced-search[open] summary small {
+    display: inline;
 }
 
 .health-advanced-search summary small {
