@@ -827,7 +827,8 @@ body {
     max-width: 82%;
     padding: 14px 18px;
     border-radius: 18px;
-    line-height: 1.65;
+    font-size: 16px;
+    line-height: 1.7;
     white-space: pre-wrap;
     word-wrap: break-word;
 }
