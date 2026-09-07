@@ -5,7 +5,7 @@
     const STORE = 'openclaw.studio.v1';
     const DEFAULTS = {
         base: '/studio-api',
-        token: '',
+        token: 'server-managed',
         model: 'openclaw/studio',
         kokoro: '/studio-api/tts',
     };
@@ -37,6 +37,9 @@
     }
 
     const state = loadState();
+    // Authentication is handled by the server; keep a non-user token marker
+    // only for compatibility with existing request guards.
+    state.token = 'server-managed';
 
     // ---------- Conversations ("sources") ----------
     const CONVOS = 'openclaw.studio.convos.v1';
@@ -3577,7 +3580,7 @@
 
     $('btnSaveSettings').addEventListener('click', () => {
         state.base = $('inpBase').value.trim() || DEFAULTS.base;
-        state.token = $('inpToken').value.trim();
+        state.token = 'server-managed';
         state.model = $('inpModel').value.trim() || DEFAULTS.model;
         state.kokoro = $('inpKokoro').value.trim();
         saveState();
@@ -3585,7 +3588,7 @@
 
     $('btnTest').addEventListener('click', async () => {
         const base = $('inpBase').value.trim() || DEFAULTS.base;
-        const token = $('inpToken').value.trim();
+        const token = '';
         setDlgStatus('Testing connection...', 'busy');
         try {
             const res = await fetch(base.replace(/\/+$/, '') + '/models', {
