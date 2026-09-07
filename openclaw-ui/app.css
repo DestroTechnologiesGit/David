@@ -1600,6 +1600,7 @@ body {
 .health-advanced-search {
     grid-column: 1;
     grid-row: 2;
+    grid-area: 2 / 1;
     justify-self: start;
     position: relative;
     width: 42px;
@@ -1872,7 +1873,7 @@ body {
 }
 
 .health-composer > .health-search-button {
-    grid-row: 1 / span 2;
+    grid-area: 1 / 2 / 3 / 3;
 }
 
 .health-search-button:hover { background: linear-gradient(135deg, #08736c, #08636d); }
@@ -1880,7 +1881,7 @@ body {
 .health-search-button svg { width: 16px; height: 16px; }
 
 .health-composer-meta {
-    grid-column: 1 / -1;
+    grid-area: 3 / 1 / 4 / 3;
     display: flex;
     justify-content: space-between;
     gap: 12px;
@@ -1904,10 +1905,11 @@ body {
     .health-advanced-search {
         grid-column: 1 / -1;
         grid-row: auto;
+        grid-area: auto;
         width: 100%;
         margin: 0;
     }
-    .health-composer > .health-search-button { grid-row: auto; }
+    .health-composer > .health-search-button { grid-area: auto; }
     .health-advanced-search summary small { display: block; }
     .health-advanced-search .health-settings-body {
         right: 0;
