@@ -302,7 +302,7 @@
         $('sourcesHead').hidden = !list.length;
         if (list.length) {
             const on = list.filter(s => s.on !== false).length;
-            $('sourcesCount').textContent = on + ' of ' + list.length + ' selected';
+            $('sourcesCount').textContent = on + ' of ' + list.length + ' sources selected';
             $('btnSelectAllSources').textContent =
                 on === list.length ? 'Deselect all' : 'Select all';
         }
