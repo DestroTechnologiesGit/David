@@ -529,7 +529,7 @@
         const currentNotes = activeId ? notes.filter(n => n.convoId === activeId) : [];
         if (!currentNotes.length) {
             box.innerHTML = '<div class="studio-note-empty">Nothing saved in this conversation yet. '
-                          + 'Use Save Note under the chat to keep an answer.</div>';
+                          + 'Use Save to completed resources under the chat to keep an answer.</div>';
             return;
         }
         box.innerHTML = currentNotes.slice(0, 8).map(n =>
@@ -1664,7 +1664,7 @@
         $('translateOutput').innerHTML = '';
         $('btnTranslateCopy').textContent = 'Copy';
         $('btnTranslateSave').disabled = false;
-        $('btnTranslateSave').textContent = 'Save to Notes';
+        $('btnTranslateSave').textContent = 'Save to completed resources';
         setTranslateStatus('');
         $('dlgTranslate').showModal();
         setTimeout(() => {
@@ -1839,7 +1839,7 @@
         translatedText = '';
         translatedLanguageCode = '';
         $('btnTranslateSave').disabled = true;
-        $('btnTranslateSave').textContent = 'Save to Notes';
+        $('btnTranslateSave').textContent = 'Save to completed resources';
         button.disabled = true;
         $('btnTranslate').disabled = true;
         $('btnStudioRailTranslate').disabled = true;
@@ -1968,7 +1968,7 @@
 
         const button = $('btnTranslateSave');
         button.disabled = true;
-        button.textContent = 'Saved to Notes';
+        button.textContent = 'Saved to completed resources';
         setTranslateStatus('Translation saved in the right sidebar.', 'success');
     }
 
@@ -2394,7 +2394,7 @@
         if (!shown.length) {
             $('notesGrid').innerHTML = '<div class="notes-empty">' + (filter
                 ? 'No notes match &ldquo;' + escapeHtml(filter) + '&rdquo;.'
-                : 'No notes yet.<br>Use Save Note under the chat to keep an answer.') + '</div>';
+                : 'No notes yet.<br>Use Save to completed resources under the chat to keep an answer.') + '</div>';
             return;
         }
 
@@ -3885,7 +3885,7 @@
             flashSaveNote(btn, 'Nothing to save yet');
             return;
         }
-        flashSaveNote(btn, 'Saved to Notes');
+        flashSaveNote(btn, 'Saved to completed resources');
     });
 
     // Brief inline confirmation, then back to the normal label.
