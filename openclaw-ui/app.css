@@ -1620,6 +1620,19 @@ body {
     box-shadow: 0 1px 4px rgba(20, 48, 57, .05);
 }
 
+.health-advanced-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.health-advanced-icon {
+    width: 14px;
+    height: 14px;
+    color: #087f77;
+    flex: none;
+}
+
 .health-advanced-search summary::before {
     position: absolute;
     top: 8px;
