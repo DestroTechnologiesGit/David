@@ -909,8 +909,9 @@
                 clearTimeout(waitHint);
                 acc += content;
                 const visible = cleanAssistantText(acc, true);
-                const shown = toPanel ? stripTitleLine(visible) : null;
-                bubble.innerHTML = renderMarkdown(shown ? shown.body : visible);
+                const parsed = stripTitleLine(visible);
+                const shown = toPanel ? parsed : { title: '', body: parsed.body };
+                bubble.innerHTML = renderMarkdown(shown.body);
                 if (shown) {
                     if (shown.title && !note) {
                         c.title = shown.title;
@@ -929,12 +930,10 @@
 
             bubble.classList.remove('caret');
             // An overview reply carries the notebook's name on its first line.
-            if (opts.titled) {
-                const cut = stripTitleLine(acc);
-                if (cut.title && !note) c.title = cut.title;
-                acc = cut.body;
-                bubble.innerHTML = renderMarkdown(acc);
-            }
+            const cut = stripTitleLine(acc);
+            if (opts.titled && cut.title && !note) c.title = cut.title;
+            acc = cut.body;
+            bubble.innerHTML = renderMarkdown(acc);
             const reply = { role: 'assistant', content: acc };
             // The import overview is presented as the notebook's header panel
             // rather than as a chat bubble, so mark it as it is stored.
