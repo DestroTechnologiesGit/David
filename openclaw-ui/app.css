@@ -1598,8 +1598,9 @@ body {
 .health-settings-body { padding: 5px 12px 13px; border-top: 1px solid #e5edef; }
 
 .health-advanced-search {
-    grid-column: 2;
-    justify-self: end;
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
     position: relative;
     width: min(300px, 44vw);
     margin: 0;
@@ -1860,6 +1861,10 @@ body {
     box-shadow: 0 6px 16px rgba(8, 127, 119, .18);
 }
 
+.health-composer > .health-search-button {
+    grid-row: 1 / span 2;
+}
+
 .health-search-button:hover { background: linear-gradient(135deg, #08736c, #08636d); }
 .health-search-button:disabled { opacity: .6; cursor: wait; }
 .health-search-button svg { width: 16px; height: 16px; }
@@ -1888,9 +1893,11 @@ body {
     .health-question-field > span { display: none; }
     .health-advanced-search {
         grid-column: 1 / -1;
+        grid-row: auto;
         width: 100%;
         margin: 0;
     }
+    .health-composer > .health-search-button { grid-row: auto; }
     .health-advanced-search summary small { display: block; }
     .health-advanced-search .health-settings-body {
         right: 0;
