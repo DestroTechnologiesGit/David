@@ -1,5 +1,5 @@
 # Caddy config for OpenClaw + Kokoro. See openclaw-ui/README.md.
-51-81-81-208.sslip.io {
+51-81-81-208.sslip.io, ai.livenetwork.ai, ai.livenetworks.ai {
 	handle /kokoro {
 		redir * /kokoro/ 308
 	}
