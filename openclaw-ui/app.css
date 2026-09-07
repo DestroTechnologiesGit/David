@@ -1669,7 +1669,8 @@ body {
 
 .health-advanced-search .health-settings-body {
     position: absolute;
-    right: 0;
+    left: 0;
+    right: auto;
     bottom: calc(100% + 8px);
     z-index: 4;
     width: min(720px, calc(100vw - 48px));
@@ -1915,8 +1916,8 @@ body {
     .health-composer > .health-search-button { grid-area: auto; }
     .health-advanced-search summary small { display: block; }
     .health-advanced-search .health-settings-body {
-        right: 0;
         left: 0;
+        right: 0;
         width: 100%;
         max-height: min(390px, 58vh);
     }
