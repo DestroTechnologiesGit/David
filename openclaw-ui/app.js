@@ -542,6 +542,9 @@
             + '<span class="studio-note-meta">/' + escapeHtml(n.slug) + ' · '
             + escapeHtml(noteAge(n.at)) + '</span>'
             + '</span>'
+            + '<button class="studio-note-copy" title="Copy note" aria-label="Copy note">'
+            + '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11z"/></svg>'
+            + '</button>'
             + '<button class="studio-note-del" title="Delete note" aria-label="Delete note">'
             + '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 '
             + '6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>'
@@ -2464,6 +2467,38 @@
     let noteSaveTimer = null;
 
     $('studioNoteList').addEventListener('click', e => {
+        const copy = e.target.closest('.studio-note-copy');
+        if (copy) {
+            e.stopPropagation();
+            const row = copy.closest('.studio-note');
+            const note = row && notes.find(n => n.id === row.dataset.id);
+            if (!note) return;
+            const copied = () => {
+                copy.classList.add('copied');
+                copy.title = 'Copied';
+                copy.setAttribute('aria-label', 'Copied');
+                setTimeout(() => {
+                    copy.classList.remove('copied');
+                    copy.title = 'Copy note';
+                    copy.setAttribute('aria-label', 'Copy note');
+                }, 1400);
+            };
+            const fallback = () => {
+                const area = document.createElement('textarea');
+                area.value = note.body || note.title || '';
+                area.style.position = 'fixed';
+                area.style.opacity = '0';
+                document.body.appendChild(area);
+                area.select();
+                try { document.execCommand('copy'); } catch (_) { /* best effort */ }
+                area.remove();
+                copied();
+            };
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(note.body || note.title || '').then(copied).catch(fallback);
+            } else fallback();
+            return;
+        }
         const del = e.target.closest('.studio-note-del');
         if (del) {
             const id = del.closest('.studio-note').dataset.id;

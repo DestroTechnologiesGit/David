@@ -2857,6 +2857,26 @@ dialog::backdrop { background: rgba(0,0,0,0.4); }
     cursor: pointer;
 }
 
+.studio-note-copy {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: var(--ink-faint);
+    opacity: 0;
+    cursor: pointer;
+}
+
+.studio-note:hover .studio-note-copy,
+.studio-note-copy:focus-visible { opacity: 1; }
+.studio-note-copy:hover { background: #e8f0fe; color: var(--accent); }
+.studio-note-copy.copied { opacity: 1; color: #188038; background: #e6f4ea; }
+.studio-note-copy svg { width: 15px; height: 15px; }
+
 .studio-note:hover .studio-note-del,
 .studio-note-del:focus-visible { opacity: 1; }
 .studio-note-del:hover { background: #fdecec; color: #c62828; }
