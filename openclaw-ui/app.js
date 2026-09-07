@@ -1905,6 +1905,9 @@
             $('translateResult').hidden = false;
             $('btnTranslateSave').disabled = false;
             setTranslateStatus('Translation ready.', 'success');
+            requestAnimationFrame(() => {
+                $('translateResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
         } catch (err) {
             if (err.name === 'AbortError') setTranslateStatus('Translation cancelled.');
             else setTranslateStatus(/failed to fetch|networkerror|load failed/i.test(err.message)
