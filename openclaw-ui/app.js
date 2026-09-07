@@ -481,10 +481,8 @@
             const on = c.sources.filter(s => s.on !== false).length;
             const when = new Date(c.at).toLocaleDateString(undefined,
                 { month: 'short', day: 'numeric', year: 'numeric' });
-            // Only call out the split when some sources are switched off.
-            el.chatSub.textContent = (on === total
-                ? total + ' source' + (total === 1 ? '' : 's')
-                : on + ' of ' + total + ' sources selected') + ' \u00B7 ' + when + ' \u00B7 /' + c.slug;
+            el.chatSub.textContent = on + ' of ' + total + ' sources selected'
+                + ' \u00B7 ' + when + ' \u00B7 /' + c.slug;
         } else {
             el.chatSub.textContent = n + ' message' + (n === 1 ? '' : 's')
                 + ' in this conversation \u00B7 /' + c.slug;
