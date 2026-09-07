@@ -1656,6 +1656,7 @@
         translatedLanguageCode = '';
         $('translateSource').value = toPlainText(translationSourceText);
         $('translateLanguageSearch').value = '';
+        $('translateLanguageField').classList.remove('collapsed');
         filterTranslationLanguages();
         selectTranslationLanguage(translationLanguageCode(translationSettings.language));
         $('translateResult').hidden = true;
@@ -1905,6 +1906,7 @@
             $('translateResult').hidden = false;
             $('btnTranslateSave').disabled = false;
             setTranslateStatus('Translation ready.', 'success');
+            $('translateLanguageField').classList.add('collapsed');
             requestAnimationFrame(() => {
                 $('translateResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
             });
@@ -1978,7 +1980,13 @@
         translationSourceText = event.target.value;
         setTranslateStatus('');
     });
-    $('translateLanguageSearch').addEventListener('input', filterTranslationLanguages);
+    $('translateLanguageSearch').addEventListener('focus', () => {
+        $('translateLanguageField').classList.remove('collapsed');
+    });
+    $('translateLanguageSearch').addEventListener('input', event => {
+        $('translateLanguageField').classList.remove('collapsed');
+        filterTranslationLanguages(event);
+    });
     $('translateLanguageGrid').addEventListener('click', event => {
         const button = event.target.closest('.translate-language-option');
         if (button) selectTranslationLanguage(button.dataset.code);

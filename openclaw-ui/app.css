@@ -2213,6 +2213,11 @@ body {
     scrollbar-gutter: stable;
 }
 
+.translate-language-field.collapsed .translate-language-grid,
+.translate-language-field.collapsed .translate-language-empty {
+    display: none;
+}
+
 .translate-language-option {
     min-width: 0;
     padding: 8px 10px;
