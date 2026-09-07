@@ -1171,7 +1171,8 @@
         $('audioSpeed').value = audioSettings.speed;
         $('audioVoiceVolume').value = audioSettings.voiceVolume;
         $('audioMusicVolume').value = audioSettings.musicVolume;
-        $('audioFormat').value = audioSettings.format;
+        audioSettings.format = 'mp3';
+        $('audioFormat').value = 'mp3';
         $('audioBackground').value = '';
         $('audioProgress').hidden = true;
         $('audioPreview').pause();
@@ -1332,7 +1333,7 @@
         audioSettings.speed = Number($('audioSpeed').value);
         audioSettings.voiceVolume = Number($('audioVoiceVolume').value);
         audioSettings.musicVolume = Number($('audioMusicVolume').value);
-        audioSettings.format = $('audioFormat').value;
+        audioSettings.format = 'mp3';
         writeJSON(AUDIO_SETTINGS, audioSettings);
 
         const browserMode = usesBrowserAudio();
