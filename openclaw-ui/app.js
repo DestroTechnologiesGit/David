@@ -2928,6 +2928,13 @@
     }
 
     document.querySelectorAll('input[name="sourceScope"]').forEach(input => {
+        input.addEventListener('click', () => {
+            // A checked radio does not emit another change event. Reopen the
+            // Health/Clinical dialog when its already-selected option is used.
+            if (input.value === 'health' && input.checked && sourceScope === 'health') {
+                openHealthDialog();
+            }
+        });
         input.addEventListener('change', () => {
             if (input.checked) setSourceScope(input.value, true);
         });
