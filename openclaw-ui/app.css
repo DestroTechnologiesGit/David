@@ -1604,7 +1604,7 @@ body {
     grid-area: 2 / 1;
     justify-self: start;
     position: relative;
-    width: min(300px, 44vw);
+    width: min(240px, 36vw);
     margin: 0;
     border: 0;
     background: transparent;
@@ -1939,7 +1939,7 @@ body {
         grid-column: 1;
         grid-row: 2;
         grid-area: 2 / 1;
-        width: min(300px, calc(100vw - 110px));
+        width: min(240px, calc(100vw - 110px));
         margin: 0;
     }
     .health-input-shell > .health-search-button { grid-area: 2 / 2; }
