@@ -1809,11 +1809,25 @@ body {
 .health-composer {
     flex: none;
     position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px;
     padding: 13px 22px 14px;
     border-top: 1px solid #dce7e8;
+    background: #fff;
+}
+
+.health-input-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 8px;
+    padding: 7px;
+    border: 1px solid #bdcfd2;
+    border-radius: 15px;
+    background: #fbfdfd;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+}
+
+.health-input-shell:focus-within {
+    border-color: #087f77;
+    box-shadow: 0 0 0 3px rgba(8, 127, 119, .1);
     background: #fff;
 }
 
@@ -1828,10 +1842,10 @@ body {
     min-height: 52px;
     max-height: 130px;
     resize: none;
-    padding: 10px 88px 10px 12px;
-    border: 1px solid #bdcfd2;
-    border-radius: 13px;
-    background: #fbfdfd;
+    padding: 7px 80px 7px 7px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
     color: var(--ink);
     font: inherit;
     font-size: 14px;
@@ -1840,9 +1854,8 @@ body {
 
 .health-question-field textarea:focus {
     outline: none;
-    border-color: #087f77;
-    box-shadow: 0 0 0 3px rgba(8, 127, 119, .1);
-    background: #fff;
+    box-shadow: none;
+    background: transparent;
 }
 
 .health-question-field textarea::placeholder { color: #89989e; }
@@ -1877,7 +1890,7 @@ body {
     box-shadow: 0 6px 16px rgba(8, 127, 119, .18);
 }
 
-.health-composer > .health-search-button {
+.health-input-shell > .health-search-button {
     grid-area: 2 / 2;
     align-self: center;
     min-height: 38px;
@@ -1889,10 +1902,10 @@ body {
 .health-search-button svg { width: 16px; height: 16px; }
 
 .health-composer-meta {
-    grid-area: 3 / 1 / 4 / 3;
     display: flex;
     justify-content: space-between;
     gap: 12px;
+    margin-top: 8px;
     color: #819196;
     font-size: 9.8px;
 }
@@ -1917,7 +1930,7 @@ body {
         width: 42px;
         margin: 0;
     }
-    .health-composer > .health-search-button { grid-area: 2 / 2; }
+    .health-input-shell > .health-search-button { grid-area: 2 / 2; }
     .health-advanced-search summary small { display: block; }
     .health-advanced-search .health-settings-body {
         left: 0;
@@ -1932,12 +1945,11 @@ body {
     .health-message.user .health-message-content { max-width: 88%; }
     .health-examples { margin-left: 0; }
     .health-composer { padding: 10px 12px 12px; }
-    .health-composer { grid-template-columns: minmax(0, 1fr) auto; }
+    .health-input-shell { grid-template-columns: minmax(0, 1fr) auto; }
     .health-question-field { grid-area: 1 / 1 / 2 / 3; }
     .health-question-field textarea { padding-right: 12px; }
     .health-search-button { min-width: 62px; }
     .health-search-button span { display: none; }
-    .health-composer-meta { grid-area: 3 / 1 / 4 / 3; }
     .health-composer-meta span:last-child { display: none; }
 }
 
