@@ -1644,6 +1644,9 @@ body {
     height: 18px;
     border-radius: 999px;
     background: #d4e0e1;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
     transition: background .15s;
 }
 
