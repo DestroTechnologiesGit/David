@@ -1014,6 +1014,18 @@
     let audioOriginalLanguage = 'en';
     let audioTranslationCache = null;
 
+    function isRtlLanguage(language) {
+        const base = String(language || '').toLowerCase().split('-', 1)[0];
+        return base === 'ar' || base === 'he';
+    }
+
+    function setTextDirection(element, language, text) {
+        if (!element) return;
+        const hasRtlText = /[\u0590-\u05ff\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff]/
+            .test(String(text || ''));
+        element.dir = isRtlLanguage(language) || hasRtlText ? 'rtl' : 'ltr';
+    }
+
     function audioVoiceLabel(voice) {
         const parts = String(voice).split('_');
         const name = parts.slice(1).join(' ') || parts[0];
@@ -1170,6 +1182,7 @@
         } : null;
         renderAudioLanguages(selectedLanguage, audioSettings.voice);
         $('audioText').value = narration;
+        setTextDirection($('audioText'), selectedLanguage, narration);
         $('audioSpeed').value = audioSettings.speed;
         $('audioVoiceVolume').value = audioSettings.voiceVolume;
         $('audioMusicVolume').value = audioSettings.musicVolume;
@@ -1452,6 +1465,7 @@
         const languageCode = $('audioLanguage').value;
         const source = audioOriginalText.trim();
         $('audioText').value = source;
+        setTextDirection($('audioText'), languageCode, source);
         updateAudioControls();
         audioTranslationCache = null;
 
@@ -1490,6 +1504,7 @@
                 throw new Error('The translated narration exceeds the 5,000 character limit.');
             }
             $('audioText').value = translated;
+            setTextDirection($('audioText'), languageCode, translated);
             audioTranslationCache = { language: languageCode, output: translated };
             updateAudioControls();
             setAudioStatus('Narration translated to ' + languageName + '.', 'success');
@@ -1513,6 +1528,7 @@
         audioLanguageChangeAbort = null;
         audioOriginalText = $('audioText').value;
         audioOriginalLanguage = $('audioLanguage').value;
+        setTextDirection($('audioText'), audioOriginalLanguage, audioOriginalText);
         audioTranslationCache = {
             language: audioOriginalLanguage,
             output: audioOriginalText.trim(),
@@ -1595,6 +1611,7 @@
             || translationLanguages.find(language => language.code === 'es');
         $('translateLanguage').value = selected.code;
         $('translateLanguageSelected').textContent = selected.name;
+        setTextDirection($('translateOutput'), selected.code, translatedText);
         $('translateLanguageGrid').querySelectorAll('.translate-language-option').forEach(button => {
             const active = button.dataset.code === selected.code;
             button.classList.toggle('selected', active);
@@ -1663,6 +1680,7 @@
         translatedText = '';
         translatedLanguageCode = '';
         $('translateSource').value = translationSourceText;
+        setTextDirection($('translateSource'), '', translationSourceText);
         $('translateLanguageSearch').value = '';
         $('translateLanguageField').classList.remove('collapsed');
         filterTranslationLanguages();
@@ -1986,6 +2004,7 @@
     $('btnTranslate').addEventListener('click', openTranslation);
     $('translateSource').addEventListener('input', event => {
         translationSourceText = event.target.value;
+        setTextDirection(event.target, '', translationSourceText);
         setTranslateStatus('');
     });
     $('translateLanguageSearch').addEventListener('focus', () => {

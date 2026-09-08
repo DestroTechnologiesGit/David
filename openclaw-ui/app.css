@@ -2292,6 +2292,14 @@ body {
     overflow-wrap: anywhere;
 }
 
+#audioText[dir="rtl"],
+#translateSource[dir="rtl"],
+.translate-output[dir="rtl"] {
+    direction: rtl;
+    text-align: right;
+    unicode-bidi: plaintext;
+}
+
 .translate-output > :first-child { margin-top: 0; }
 .translate-output > :last-child { margin-bottom: 0; }
 
