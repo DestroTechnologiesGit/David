@@ -1660,11 +1660,11 @@ body {
     transition: transform .15s;
 }
 
-.health-advanced-search[open] .health-advanced-switch {
+.health-advanced-search.filters-active .health-advanced-switch {
     background: #087f77;
 }
 
-.health-advanced-search[open] .health-advanced-switch::after {
+.health-advanced-search.filters-active .health-advanced-switch::after {
     transform: translateX(12px);
 }
 

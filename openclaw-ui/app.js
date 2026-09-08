@@ -3220,6 +3220,11 @@
     $('btnHealthNew').addEventListener('click', resetHealthChat);
 
     const healthAdvancedSearch = document.querySelector('.health-advanced-search');
+    if (healthAdvancedSearch) {
+        healthAdvancedSearch.addEventListener('toggle', () => {
+            if (healthAdvancedSearch.open) healthAdvancedSearch.classList.add('filters-active');
+        });
+    }
     $('dlgHealth').addEventListener('click', event => {
         if (!healthAdvancedSearch || !healthAdvancedSearch.open) return;
         if (!healthAdvancedSearch.contains(event.target)) {
