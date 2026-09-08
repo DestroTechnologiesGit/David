@@ -2951,7 +2951,8 @@
         const date = $('healthDate').selectedOptions[0].textContent;
         const region = $('healthRegion').selectedOptions[0].textContent;
         const evidence = $('healthEvidence').selectedOptions[0].textContent;
-        $('healthPreferenceSummary').textContent = date + ' · ' + region + ' · ' + evidence;
+        const summary = $('healthPreferenceSummary');
+        if (summary) summary.textContent = date + ' · ' + region + ' · ' + evidence;
     }
 
     function setHealthStatus(text, kind) {
