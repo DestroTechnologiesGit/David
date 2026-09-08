@@ -3002,6 +3002,8 @@
     }
 
     function closeHealthDialog() {
+        const advanced = document.querySelector('.health-advanced-search');
+        if (advanced) advanced.removeAttribute('open');
         if ($('dlgHealth').open) $('dlgHealth').close();
     }
 
@@ -3216,6 +3218,14 @@
     if (panelHealthButton) panelHealthButton.addEventListener('click', openHealthDialog);
     $('btnHealthClose').addEventListener('click', closeHealthDialog);
     $('btnHealthNew').addEventListener('click', resetHealthChat);
+
+    const healthAdvancedSearch = document.querySelector('.health-advanced-search');
+    $('dlgHealth').addEventListener('click', event => {
+        if (!healthAdvancedSearch || !healthAdvancedSearch.open) return;
+        if (!healthAdvancedSearch.contains(event.target)) {
+            healthAdvancedSearch.removeAttribute('open');
+        }
+    });
 
     $('healthConversation').addEventListener('click', event => {
         const button = event.target.closest('[data-health-question]');
