@@ -1604,7 +1604,7 @@ body {
     grid-area: 2 / 1;
     justify-self: start;
     position: relative;
-    width: 42px;
+    width: min(300px, 44vw);
     margin: 0;
     border: 0;
     background: transparent;
@@ -1629,11 +1629,6 @@ body {
     gap: 6px;
 }
 
-.health-advanced-label > span:last-child,
-.health-advanced-search summary small {
-    display: none;
-}
-
 .health-advanced-icon {
     width: 14px;
     height: 14px;
@@ -1643,21 +1638,6 @@ body {
 
 .health-advanced-search summary::before {
     display: none;
-}
-
-.health-advanced-search:hover,
-.health-advanced-search:focus-within,
-.health-advanced-search[open] {
-    width: min(300px, 44vw);
-}
-
-.health-advanced-search:hover .health-advanced-label > span:last-child,
-.health-advanced-search:focus-within .health-advanced-label > span:last-child,
-.health-advanced-search[open] .health-advanced-label > span:last-child,
-.health-advanced-search:hover summary small,
-.health-advanced-search:focus-within summary small,
-.health-advanced-search[open] summary small {
-    display: inline;
 }
 
 .health-advanced-search summary small {
@@ -1927,7 +1907,7 @@ body {
         grid-column: 1;
         grid-row: 2;
         grid-area: 2 / 1;
-        width: 42px;
+        width: min(300px, calc(100vw - 110px));
         margin: 0;
     }
     .health-input-shell > .health-search-button { grid-area: 2 / 2; }
