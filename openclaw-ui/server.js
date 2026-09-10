@@ -14,6 +14,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
+const { DatabaseSync } = require("node:sqlite");
 const { Readable } = require("node:stream");
 const { StringDecoder } = require("node:string_decoder");
 
@@ -21,10 +22,12 @@ const API_PREFIX = "/studio-api";
 const ALLOWED_API_ROUTES = new Set([
     "/chat", "/search", "/models", "/voices", "/tts", "/convert",
     "/share-note", "/shared-note", "/share-note-audio", "/shared-note-audio",
+    "/users", "/user-data",
 ]);
 const PORT = integerEnv("STUDIO_NODE_PORT", 18881);
 const HOST = process.env.STUDIO_NODE_HOST || "127.0.0.1";
 const GATEWAY = withoutTrailingSlash(process.env.OPENCLAW_GATEWAY || "http://127.0.0.1:18789");
+const SEARXNG_SEARCH_URL = process.env.SEARXNG_SEARCH_URL || "http://127.0.0.1:8888/search";
 const HEALTH_RANK_URL = process.env.BIOFORMER_RANK_URL || "http://127.0.0.1:18880/health-rank";
 const CONVERT_URL = process.env.DOCUMENT_CONVERT_URL || "http://127.0.0.1:18880/convert";
 const KOKORO_URL = process.env.KOKORO_URL || "http://127.0.0.1:8890/api";
@@ -39,6 +42,20 @@ const CHAT_CONTEXT_TOKENS = integerEnv("STUDIO_CHAT_CONTEXT_TOKENS", 8192);
 const MAX_SHARED_AUDIO_BYTES = integerEnv("STUDIO_MAX_SHARED_AUDIO_BYTES", 64 * 1024 * 1024);
 const DEFAULT_SHARED_NOTES_DIR = process.env.SHARED_NOTES_DIR
     || "/home/ubuntu/livecontent-shared-notes";
+const DEFAULT_DATABASE_PATH = process.env.STUDIO_DATABASE_PATH
+    || "/home/ubuntu/livecontent-studio-api/livecontent.sqlite3";
+const STUDIO_USERS = Object.freeze({ david: "David", shayan: "Shayan" });
+const USER_DATA_KEYS = new Set([
+    "openclaw.studio.v1",
+    "openclaw.studio.convos.v1",
+    "openclaw.studio.notes.v1",
+    "openclaw.studio.active.v1",
+    "openclaw.studio.audio.v1",
+    "openclaw.studio.translation.v1",
+    "openclaw.studio.sourceScope.v1",
+    "openclaw.studio.healthAdvancedEnabled.v1",
+    "openclaw.studio.panels.v1",
+]);
 const SHARE_ID = /^[a-f0-9]{32}$/;
 const SHARED_AUDIO_TYPES = new Set([
     "audio/aac", "audio/mp4", "audio/mpeg", "audio/ogg", "audio/wav",
@@ -81,6 +98,52 @@ function readStudioToken() {
         throw new Error("STUDIO_ACCESS_TOKEN is required; do not reuse the OpenClaw gateway token");
     }
     return token;
+}
+
+let studioDb;
+
+function initializeDatabase(databasePath = DEFAULT_DATABASE_PATH) {
+    if (studioDb) return studioDb;
+    if (databasePath !== ":memory:") {
+        fs.mkdirSync(path.dirname(databasePath), { recursive: true, mode: 0o700 });
+    }
+    studioDb = new DatabaseSync(databasePath);
+    studioDb.exec("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;");
+    studioDb.exec(`
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            display_name TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS user_data (
+            user_id TEXT NOT NULL,
+            data_key TEXT NOT NULL,
+            value_json TEXT NOT NULL,
+            updated_at INTEGER NOT NULL,
+            PRIMARY KEY (user_id, data_key),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+    `);
+    const insertUser = studioDb.prepare(
+        "INSERT OR IGNORE INTO users (id, display_name, created_at) VALUES (?, ?, ?)"
+    );
+    const now = Date.now();
+    Object.entries(STUDIO_USERS).forEach(([id, name]) => insertUser.run(id, name, now));
+    return studioDb;
+}
+
+function requestUser(req) {
+    const id = String(req.headers["x-livecontent-user"] || "").trim().toLowerCase();
+    return STUDIO_USERS[id] ? id : "";
+}
+
+function requireUser(req, res) {
+    const userId = requestUser(req);
+    if (!userId) {
+        jsonResponse(res, 401, { error: "Choose a valid LiveContent user." });
+        return "";
+    }
+    return userId;
 }
 
 function safeEqual(left, right) {
@@ -496,7 +559,7 @@ function cleanSearchText(value) {
 
 function normalizeResults(results) {
     if (!Array.isArray(results)) return [];
-    return results.filter(item => item && (item.url || item.link)).slice(0, 10).map(item => ({
+    return results.filter(item => item && (item.url || item.link)).slice(0, 20).map(item => ({
         title: cleanSearchText(item.title || item.name || item.url || "Untitled").slice(0, 200),
         url: String(item.url || item.link).slice(0, 2048),
         snippet: cleanSearchText(item.snippet || item.description || item.summary || "").slice(0, 400),
@@ -532,7 +595,7 @@ function searchPrompt(query, scope) {
     return `Use your web_search tool. Find sources about: ${query}\n\n${health}`
         + "Reply with ONLY a JSON array, no prose and no code fence. Each item must be "
         + '{"title":"...","url":"https://...","snippet":"one sentence"}. '
-        + "Return up to 10 real results with real URLs from the search tool. "
+        + "Return up to 20 real results with real URLs from the search tool. "
         + "If the search tool is unavailable, reply with exactly: NO_SEARCH";
 }
 
@@ -543,7 +606,7 @@ async function invokeWebSearch(query, scope) {
         body: JSON.stringify({
             tool: "web_search",
             agentId: "studio-search",
-            args: { query: scopedSearchQuery(query, scope), count: 10 },
+            args: { query: scopedSearchQuery(query, scope), count: 20 },
         }),
     }, 120_000);
     const json = await response.json().catch(() => null);
@@ -551,6 +614,24 @@ async function invokeWebSearch(query, scope) {
     const results = normalizeResults(details && details.results);
     if (!response.ok || !json || !json.ok || !results.length) {
         throw new Error(errorMessage(json, "Structured web search is unavailable."));
+    }
+    return results;
+}
+
+async function directWebSearch(query, scope) {
+    const url = new URL(SEARXNG_SEARCH_URL);
+    url.searchParams.set("q", scopedSearchQuery(query, scope));
+    url.searchParams.set("format", "json");
+    url.searchParams.set("categories", "general,news");
+    url.searchParams.set("language", "en");
+    const response = await fetchWithTimeout(url, {}, 20_000);
+    const json = await response.json().catch(() => null);
+    const results = normalizeResults(json && json.results && json.results.map(item => ({
+        ...item,
+        snippet: item.snippet || item.content || item.description || "",
+    })));
+    if (!response.ok || !results.length) {
+        throw new Error("Local web search returned no results.");
     }
     return results;
 }
@@ -600,9 +681,13 @@ async function handleSearch(req, res) {
 
     let results;
     try {
-        results = await invokeWebSearch(query, scope);
+        results = await directWebSearch(query, scope);
     } catch (_) {
-        results = await agentWebSearch(query, scope);
+        try {
+            results = await invokeWebSearch(query, scope);
+        } catch (_) {
+            results = await agentWebSearch(query, scope);
+        }
     }
 
     let ranking = null;
@@ -619,6 +704,57 @@ async function handleSearch(req, res) {
         }
     }
     jsonResponse(res, 200, { results, ranking });
+}
+
+function handleUsers(_req, res) {
+    const users = initializeDatabase().prepare(
+        "SELECT id, display_name AS name FROM users ORDER BY display_name"
+    ).all();
+    jsonResponse(res, 200, { users });
+}
+
+async function handleUserData(req, res) {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    const database = initializeDatabase();
+    if (req.method === "GET") {
+        const rows = database.prepare(
+            "SELECT data_key, value_json, updated_at FROM user_data WHERE user_id = ?"
+        ).all(userId);
+        const data = {};
+        let updatedAt = 0;
+        for (const row of rows) {
+            if (!USER_DATA_KEYS.has(row.data_key)) continue;
+            try {
+                data[row.data_key] = JSON.parse(row.value_json);
+                updatedAt = Math.max(updatedAt, Number(row.updated_at) || 0);
+            } catch (_) { /* Ignore a damaged value without hiding the rest. */ }
+        }
+        return jsonResponse(res, 200, {
+            user: { id: userId, name: STUDIO_USERS[userId] },
+            data,
+            updatedAt,
+        });
+    }
+
+    const body = await readJson(req, MAX_JSON_BYTES);
+    const dataKey = String(body.key || "");
+    if (!USER_DATA_KEYS.has(dataKey) || !("value" in body)) {
+        return jsonResponse(res, 400, { error: "Invalid user data key or value." });
+    }
+    const valueJson = JSON.stringify(body.value);
+    if (Buffer.byteLength(valueJson) > MAX_JSON_BYTES) {
+        return jsonResponse(res, 413, { error: "User data is too large." });
+    }
+    const updatedAt = Date.now();
+    database.prepare(`
+        INSERT INTO user_data (user_id, data_key, value_json, updated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id, data_key) DO UPDATE SET
+            value_json = excluded.value_json,
+            updated_at = excluded.updated_at
+    `).run(userId, dataKey, valueJson, updatedAt);
+    jsonResponse(res, 200, { saved: true, updatedAt });
 }
 
 async function handleModels(_req, res) {
@@ -698,6 +834,10 @@ async function handleRequest(req, res) {
     // credential remains server-side and is never exposed to browsers.
 
     const route = routePath(req.url);
+    if (req.method === "GET" && route === "/users") return handleUsers(req, res);
+    if ((req.method === "GET" || req.method === "POST") && route === "/user-data") {
+        return handleUserData(req, res);
+    }
     if (req.method === "POST" && route === "/chat") return handleChat(req, res);
     if (req.method === "POST" && route === "/search") return handleSearch(req, res);
     if (req.method === "GET" && route === "/models") return handleModels(req, res);
@@ -718,6 +858,7 @@ function createServer(options = {}) {
     gatewayToken = options.gatewayToken || gatewayToken || readGatewayToken();
     studioToken = options.studioToken || studioToken || readStudioToken();
     sharedNotesDir = options.sharedNotesDir || DEFAULT_SHARED_NOTES_DIR;
+    initializeDatabase(options.databasePath || DEFAULT_DATABASE_PATH);
     return http.createServer((req, res) => {
         handleRequest(req, res).catch(error => {
             if (res.headersSent) return res.destroy();

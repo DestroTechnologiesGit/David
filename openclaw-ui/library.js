@@ -5,12 +5,46 @@
  * localStorage, so the small helpers below are duplicated from app.js by
  * design rather than imported.
  */
-(() => {
+(async () => {
     "use strict";
 
-    const CONVOS = 'openclaw.studio.convos.v1';
+    const CURRENT_USER_KEY = 'openclaw.studio.currentUser.v1';
+    const USERS = Object.freeze({ david: 'David', shayan: 'Shayan' });
+    const savedUser = String(localStorage.getItem(CURRENT_USER_KEY) || '').toLowerCase();
+    const currentUser = USERS[savedUser] ? savedUser : '';
+    const userStorageKey = key => key + '.user.' + (currentUser || 'signed-out');
+    const PROFILE_DATA_KEYS = [
+        'openclaw.studio.v1',
+        'openclaw.studio.convos.v1',
+        'openclaw.studio.notes.v1',
+        'openclaw.studio.active.v1',
+        'openclaw.studio.audio.v1',
+        'openclaw.studio.translation.v1',
+        'openclaw.studio.sourceScope.v1',
+        'openclaw.studio.healthAdvancedEnabled.v1',
+        'openclaw.studio.panels.v1',
+    ];
+
+    async function hydrateUserProfile() {
+        if (!currentUser) return;
+        try {
+            const response = await fetch('/studio-api/user-data', {
+                headers: { 'X-LiveContent-User': currentUser },
+            });
+            const payload = await response.json();
+            if (!response.ok || !payload || !payload.data) return;
+            PROFILE_DATA_KEYS.forEach(key => {
+                if (Object.prototype.hasOwnProperty.call(payload.data, key)) {
+                    localStorage.setItem(userStorageKey(key), JSON.stringify(payload.data[key]));
+                }
+            });
+        } catch (_) { /* Keep using the local cache while the server is unavailable. */ }
+    }
+
+    await hydrateUserProfile();
+    const CONVOS = userStorageKey('openclaw.studio.convos.v1');
     // Which book index.html should open. Set here, read there.
-    const ACTIVE = 'openclaw.studio.active.v1';
+    const ACTIVE = userStorageKey('openclaw.studio.active.v1');
     const BASE = '/livecontent';
 
     // This page does not consume URL parameters or fragments. Remove them and
@@ -27,8 +61,84 @@
         } catch (e) { return fallback; }
     }
 
+    const databaseWrites = new Map();
+    function persistUserData(key, value) {
+        if (!currentUser) return;
+        const suffix = '.user.' + currentUser;
+        if (!key.endsWith(suffix)) return;
+        const dataKey = key.slice(0, -suffix.length);
+        if (!PROFILE_DATA_KEYS.includes(dataKey)) return;
+        const previous = databaseWrites.get(dataKey) || Promise.resolve();
+        const next = previous.catch(() => {}).then(() => fetch('/studio-api/user-data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-LiveContent-User': currentUser,
+            },
+            body: JSON.stringify({ key: dataKey, value }),
+        })).then(response => {
+            if (!response.ok) throw new Error('User data could not be saved.');
+        }).catch(() => { /* Keep the local copy when the database is unavailable. */ });
+        databaseWrites.set(dataKey, next);
+    }
+
     function writeJSON(key, value) {
-        try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+        try {
+            localStorage.setItem(key, JSON.stringify(value));
+            persistUserData(key, value);
+        } catch (e) {}
+    }
+
+    function migrateLegacyProfile(userId) {
+        if (userId !== 'david') return;
+        const marker = 'openclaw.studio.userMigration.david.v1';
+        if (localStorage.getItem(marker)) return;
+        PROFILE_DATA_KEYS.forEach(key => {
+            const value = localStorage.getItem(key);
+            const target = key + '.user.david';
+            if (value !== null && localStorage.getItem(target) === null) {
+                localStorage.setItem(target, value);
+            }
+        });
+        localStorage.setItem(marker, '1');
+    }
+
+    function selectUser(userId) {
+        if (!USERS[userId]) return;
+        migrateLegacyProfile(userId);
+        localStorage.setItem(CURRENT_USER_KEY, userId);
+        location.reload();
+    }
+
+    function showLoginGate(allowCancel) {
+        const gate = document.getElementById('loginGate');
+        gate.hidden = false;
+        document.body.classList.add('user-login-open');
+        document.getElementById('btnLoginCancel').hidden = !allowCancel;
+        const selected = gate.querySelector('[data-login-user="' + currentUser + '"]')
+            || gate.querySelector('[data-login-user]');
+        if (selected) selected.focus();
+    }
+
+    function hideLoginGate() {
+        if (!currentUser) return;
+        document.getElementById('loginGate').hidden = true;
+        document.body.classList.remove('user-login-open');
+    }
+
+    function initializeUserLogin() {
+        const name = USERS[currentUser] || 'Choose user';
+        document.getElementById('currentUserName').textContent = name;
+        document.getElementById('currentUserAvatar').textContent = currentUser
+            ? name.charAt(0) : '?';
+        document.getElementById('btnCurrentUser').addEventListener(
+            'click', () => showLoginGate(true)
+        );
+        document.querySelectorAll('[data-login-user]').forEach(button => {
+            button.addEventListener('click', () => selectUser(button.dataset.loginUser));
+        });
+        document.getElementById('btnLoginCancel').addEventListener('click', hideLoginGate);
+        if (!currentUser) showLoginGate(false);
     }
 
     const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -72,6 +182,14 @@
     const migration = migrateConvos(readJSON(CONVOS, []));
     let convos = migration.convos;
     if (migration.changed) writeJSON(CONVOS, convos);
+    if (currentUser) {
+        PROFILE_DATA_KEYS.forEach(key => {
+            const scopedKey = userStorageKey(key);
+            const raw = localStorage.getItem(scopedKey);
+            if (raw === null) return;
+            try { persistUserData(scopedKey, JSON.parse(raw)); } catch (_) {}
+        });
+    }
 
     function makeConvo(title) {
         const id = uid();
@@ -188,5 +306,6 @@
         openBook(c.id);
     });
 
+    initializeUserLogin();
     render();
 })();

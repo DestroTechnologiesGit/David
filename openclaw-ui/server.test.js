@@ -46,6 +46,8 @@ describe("private Studio API helpers", () => {
         assert.equal(routePath("/studio-api/../models"), null);
         assert.equal(routePath("//example.test/models"), null);
         assert.equal(routePath("/admin"), null);
+        assert.equal(routePath("/studio-api/users"), "/users");
+        assert.equal(routePath("/studio-api/user-data"), "/user-data");
     });
 
     it("compares access keys without accepting unequal lengths", () => {
@@ -129,6 +131,7 @@ describeNetwork("private Studio API HTTP boundary", () => {
             gatewayToken: "owner-secret",
             studioToken: "studio-secret",
             sharedNotesDir,
+            databasePath: ":memory:",
         });
         await new Promise((resolve, reject) => {
             server.once("error", reject);
@@ -224,6 +227,29 @@ describeNetwork("private Studio API HTTP boundary", () => {
             headers: { Authorization: "Bearer studio-secret", Connection: "close" },
         });
         assert.equal(response.status, 404);
+    });
+
+    it("stores David and Shayan workspace data separately", async () => {
+        const key = "openclaw.studio.convos.v1";
+        for (const [user, title] of [["david", "David chat"], ["shayan", "Shayan chat"]]) {
+            const saved = await fetch(`${base}/studio-api/user-data`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-LiveContent-User": user,
+                    Connection: "close",
+                },
+                body: JSON.stringify({ key, value: [{ title }] }),
+            });
+            assert.equal(saved.status, 200);
+        }
+        for (const [user, title] of [["david", "David chat"], ["shayan", "Shayan chat"]]) {
+            const loaded = await fetch(`${base}/studio-api/user-data`, {
+                headers: { "X-LiveContent-User": user, Connection: "close" },
+            });
+            assert.equal(loaded.status, 200);
+            assert.equal((await loaded.json()).data[key][0].title, title);
+        }
     });
 
     it("rejects arbitrary assistant IDs before contacting OpenClaw", async () => {

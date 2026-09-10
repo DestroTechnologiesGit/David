@@ -1,8 +1,46 @@
-(() => {
+(async () => {
     "use strict";
 
+    // ---------- User profiles ----------
+    // This is a lightweight user-ID login for the initial two users. Each
+    // profile has a local cache synchronized with its own server-side records.
+    const CURRENT_USER_KEY = 'openclaw.studio.currentUser.v1';
+    const USERS = Object.freeze({ david: 'David', shayan: 'Shayan' });
+    const savedUser = String(localStorage.getItem(CURRENT_USER_KEY) || '').toLowerCase();
+    const currentUser = USERS[savedUser] ? savedUser : '';
+    const userStorageKey = key => key + '.user.' + (currentUser || 'signed-out');
+    const PROFILE_DATA_KEYS = [
+        'openclaw.studio.v1',
+        'openclaw.studio.convos.v1',
+        'openclaw.studio.notes.v1',
+        'openclaw.studio.active.v1',
+        'openclaw.studio.audio.v1',
+        'openclaw.studio.translation.v1',
+        'openclaw.studio.sourceScope.v1',
+        'openclaw.studio.healthAdvancedEnabled.v1',
+        'openclaw.studio.panels.v1',
+    ];
+
+    async function hydrateUserProfile() {
+        if (!currentUser) return;
+        try {
+            const response = await fetch('/studio-api/user-data', {
+                headers: { 'X-LiveContent-User': currentUser },
+            });
+            const payload = await response.json();
+            if (!response.ok || !payload || !payload.data) return;
+            PROFILE_DATA_KEYS.forEach(key => {
+                if (Object.prototype.hasOwnProperty.call(payload.data, key)) {
+                    localStorage.setItem(userStorageKey(key), JSON.stringify(payload.data[key]));
+                }
+            });
+        } catch (_) { /* Keep using the local cache while the server is unavailable. */ }
+    }
+
+    await hydrateUserProfile();
+
     // ---------- Settings ----------
-    const STORE = 'openclaw.studio.v1';
+    const STORE = userStorageKey('openclaw.studio.v1');
     const DEFAULTS = {
         base: '/studio-api',
         token: 'server-managed',
@@ -31,9 +69,7 @@
     }
 
     function saveState() {
-        try {
-            localStorage.setItem(STORE, JSON.stringify(state));
-        } catch (e) { /* private mode: settings just don't persist */ }
+        writeJSON(STORE, state);
     }
 
     const state = loadState();
@@ -42,8 +78,9 @@
     state.token = 'server-managed';
 
     // ---------- Conversations ("sources") ----------
-    const CONVOS = 'openclaw.studio.convos.v1';
-    const NOTES = 'openclaw.studio.notes.v1';
+    const CONVOS = userStorageKey('openclaw.studio.convos.v1');
+    const NOTES = userStorageKey('openclaw.studio.notes.v1');
+    const ACTIVE = userStorageKey('openclaw.studio.active.v1');
 
     function readJSON(key, fallback) {
         try {
@@ -55,10 +92,32 @@
     function writeJSON(key, value) {
         try {
             localStorage.setItem(key, JSON.stringify(value));
+            persistUserData(key, value);
             return true;
         } catch (e) {
             return false;
         }
+    }
+
+    const databaseWrites = new Map();
+    function persistUserData(key, value) {
+        if (!currentUser) return;
+        const suffix = '.user.' + currentUser;
+        if (!key.endsWith(suffix)) return;
+        const dataKey = key.slice(0, -suffix.length);
+        if (!PROFILE_DATA_KEYS.includes(dataKey)) return;
+        const previous = databaseWrites.get(dataKey) || Promise.resolve();
+        const next = previous.catch(() => {}).then(() => fetch('/studio-api/user-data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-LiveContent-User': currentUser,
+            },
+            body: JSON.stringify({ key: dataKey, value }),
+        })).then(response => {
+            if (!response.ok) throw new Error('User data could not be saved.');
+        }).catch(() => { /* The browser cache remains available for retry on reload. */ });
+        databaseWrites.set(dataKey, next);
     }
 
     const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -148,14 +207,91 @@
     // The library page records its choice here; fall back to the newest book
     // so a direct visit still opens something sensible.
     let activeId = (() => {
-        const chosen = readJSON('openclaw.studio.active.v1', null);
+        const chosen = readJSON(ACTIVE, null);
         if (chosen && convos.some(c => c.id === chosen)) return chosen;
         return convos.length ? convos[0].id : null;
     })();
+    if (currentUser) {
+        // Seed a new database from this browser's existing profile, including
+        // the one-time migration of the pre-login David workspace.
+        PROFILE_DATA_KEYS.forEach(key => {
+            const raw = localStorage.getItem(userStorageKey(key));
+            if (raw === null) return;
+            try { persistUserData(userStorageKey(key), JSON.parse(raw)); } catch (_) {}
+        });
+    }
     let streaming = false;
     let abort = null;
 
     const $ = id => document.getElementById(id);
+
+    const LEGACY_PROFILE_KEYS = [
+        'openclaw.studio.v1',
+        'openclaw.studio.convos.v1',
+        'openclaw.studio.notes.v1',
+        'openclaw.studio.active.v1',
+        'openclaw.studio.audio.v1',
+        'openclaw.studio.translation.v1',
+        'openclaw.studio.sourceScope.v1',
+        'openclaw.studio.healthAdvancedEnabled.v1',
+        'openclaw.studio.panels.v1',
+    ];
+
+    function migrateLegacyProfile(userId) {
+        // Existing unscoped data belongs to David. Copy it once so enabling
+        // login does not make the current workspace appear to disappear.
+        if (userId !== 'david') return;
+        const marker = 'openclaw.studio.userMigration.david.v1';
+        if (localStorage.getItem(marker)) return;
+        LEGACY_PROFILE_KEYS.forEach(key => {
+            const value = localStorage.getItem(key);
+            const target = key + '.user.david';
+            if (value !== null && localStorage.getItem(target) === null) {
+                localStorage.setItem(target, value);
+            }
+        });
+        localStorage.setItem(marker, '1');
+    }
+
+    function selectUser(userId) {
+        if (!USERS[userId]) return;
+        migrateLegacyProfile(userId);
+        localStorage.setItem(CURRENT_USER_KEY, userId);
+        location.reload();
+    }
+
+    function showLoginGate(allowCancel) {
+        const gate = $('loginGate');
+        if (!gate) return;
+        gate.hidden = false;
+        document.body.classList.add('user-login-open');
+        $('btnLoginCancel').hidden = !allowCancel;
+        const selected = gate.querySelector('[data-login-user="' + currentUser + '"]')
+            || gate.querySelector('[data-login-user]');
+        if (selected) selected.focus();
+    }
+
+    function hideLoginGate() {
+        if (!currentUser) return;
+        $('loginGate').hidden = true;
+        document.body.classList.remove('user-login-open');
+    }
+
+    function initializeUserLogin() {
+        const name = USERS[currentUser] || 'Choose user';
+        const userName = $('currentUserName');
+        const avatar = $('currentUserAvatar');
+        if (userName) userName.textContent = name;
+        if (avatar) avatar.textContent = currentUser ? name.charAt(0) : '?';
+        const userButton = $('btnCurrentUser');
+        if (userButton) userButton.addEventListener('click', () => showLoginGate(true));
+        document.querySelectorAll('[data-login-user]').forEach(button => {
+            button.addEventListener('click', () => selectUser(button.dataset.loginUser));
+        });
+        $('btnLoginCancel').addEventListener('click', hideLoginGate);
+    }
+
+    initializeUserLogin();
     const el = {
         sourceList: $('sourceList'), chatTitle: $('chatTitle'), chatSub: $('chatSub'),
         messages: $('messages'), chatScroll: $('chatScroll'), input: $('composerInput'),
@@ -1106,7 +1242,7 @@
     }
 
     // ---------- Audio Overview (narration service) ----------
-    const AUDIO_SETTINGS = 'openclaw.studio.audio.v1';
+    const AUDIO_SETTINGS = userStorageKey('openclaw.studio.audio.v1');
     const AUDIO_DEFAULTS_VERSION = 'livecontent.audio-defaults.v3';
     const savedAudioSettings = readJSON(AUDIO_SETTINGS, {});
     const audioSettings = Object.assign({
@@ -1816,7 +1952,7 @@
     $('dlgAudio').addEventListener('close', stopAudioOverviewPlayback);
 
     // ---------- Translation ----------
-    const TRANSLATION_SETTINGS = 'openclaw.studio.translation.v1';
+    const TRANSLATION_SETTINGS = userStorageKey('openclaw.studio.translation.v1');
     const TRANSLATION_AGENT = 'openclaw/translator';
     const NO_TRANSLATABLE_TEXT = 'NO_TRANSLATABLE_TEXT';
     const translationSettings = Object.assign({ language: 'es' },
@@ -3347,7 +3483,7 @@
     const elResults = $('results');
     const elResultList = $('resultList');
     const elSearchStatus = $('searchStatus');
-    const SOURCE_SCOPE = 'openclaw.studio.sourceScope.v1';
+    const SOURCE_SCOPE = userStorageKey('openclaw.studio.sourceScope.v1');
     const SCOPE_META = {
         web: {
             placeholder: 'Search the web for new sources',
@@ -3367,7 +3503,7 @@
     let healthMessages = [];
     let healthAbort = null;
     let healthRequestId = 0;
-    const HEALTH_ADVANCED_ENABLED = 'openclaw.studio.healthAdvancedEnabled.v1';
+    const HEALTH_ADVANCED_ENABLED = userStorageKey('openclaw.studio.healthAdvancedEnabled.v1');
     let healthAdvancedEnabled = readJSON(HEALTH_ADVANCED_ENABLED, true) !== false;
 
     function setSearchStatus(text, kind) {
@@ -4166,7 +4302,7 @@
     // ---------- Events ----------
     $('btnSettings').addEventListener('click', () => openSettings());
 
-    const PANELS = 'openclaw.studio.panels.v1';
+    const PANELS = userStorageKey('openclaw.studio.panels.v1');
     const savedPanelLayout = readJSON(PANELS, null);
     const panelLayout = savedPanelLayout && typeof savedPanelLayout === 'object'
         ? savedPanelLayout : { sourcesCollapsed: false, studioCollapsed: false };
@@ -4646,8 +4782,6 @@
 
     // The book picker is its own page now (library.html). It records the
     // chosen book here, so this page knows which one to open.
-    const ACTIVE = 'openclaw.studio.active.v1';
-
     function libraryUrl() {
         return (BASE || '') + '/library.html';
     }
@@ -4852,16 +4986,20 @@
     }
 
     // ---------- Boot ----------
-    // The mount root is always the library/home entry point. Direct routes
-    // remain available only when selected through their UI controls.
-    if (location.pathname.replace(/\/+$/, '') === BASE) {
-        openLibrary();
-        return;
-    }
     const bootView = currentView();
     // Shared links must open for recipients who have no local books or notes.
     if (bootView && bootView.shared) {
         showView(bootView, false);
+        return;
+    }
+    if (!currentUser) {
+        showLoginGate(false);
+        return;
+    }
+    // The mount root is always the library/home entry point. Direct routes
+    // remain available only when selected through their UI controls.
+    if (location.pathname.replace(/\/+$/, '') === BASE) {
+        openLibrary();
         return;
     }
     renderSources();

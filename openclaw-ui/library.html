@@ -8,6 +8,27 @@
 <link rel="stylesheet" href="/livecontent/app.css">
 </head>
 <body>
+<div class="login-gate" id="loginGate" hidden>
+    <section class="login-card" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+        <div class="login-mark" aria-hidden="true">LC</div>
+        <h1 id="loginTitle">Welcome to LiveContent</h1>
+        <p>Choose your user ID to open your private workspace.</p>
+        <div class="login-users">
+            <button class="login-user" type="button" data-login-user="david">
+                <span class="login-avatar">D</span>
+                <span><strong>David</strong><small>Open David's conversations</small></span>
+                <span class="login-arrow" aria-hidden="true">&rsaquo;</span>
+            </button>
+            <button class="login-user" type="button" data-login-user="shayan">
+                <span class="login-avatar">S</span>
+                <span><strong>Shayan</strong><small>Open Shayan's conversations</small></span>
+                <span class="login-arrow" aria-hidden="true">&rsaquo;</span>
+            </button>
+        </div>
+        <button class="login-cancel" id="btnLoginCancel" type="button" hidden>Cancel</button>
+        <p class="login-note">Each user has separate conversations and completed resources saved in LiveContent.</p>
+    </section>
+</div>
 
 <div class="library">
     <div class="library-inner">
@@ -16,10 +37,16 @@
                 <h1 class="library-title">LiveContent&trade;</h1>
                 <p class="library-sub">Choose a book to open, or start a new one.</p>
             </div>
-            <button class="new-book" id="btnNewBook">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                New Book
-            </button>
+            <div class="library-head-actions">
+                <button class="user-pill" id="btnCurrentUser" type="button" title="Switch user">
+                    <span class="user-pill-avatar" id="currentUserAvatar">?</span>
+                    <span id="currentUserName">Choose user</span>
+                </button>
+                <button class="new-book" id="btnNewBook">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                    New Book
+                </button>
+            </div>
         </header>
         <div class="book-grid" id="bookGrid"></div>
     </div>

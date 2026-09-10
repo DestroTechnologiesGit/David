@@ -8,6 +8,27 @@
 <link rel="stylesheet" href="/livecontent/app.css">
 </head>
 <body>
+<div class="login-gate" id="loginGate" hidden>
+    <section class="login-card" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+        <div class="login-mark" aria-hidden="true">LC</div>
+        <h1 id="loginTitle">Welcome to LiveContent</h1>
+        <p>Choose your user ID to open your private workspace.</p>
+        <div class="login-users">
+            <button class="login-user" type="button" data-login-user="david">
+                <span class="login-avatar">D</span>
+                <span><strong>David</strong><small>Open David's conversations</small></span>
+                <span class="login-arrow" aria-hidden="true">&rsaquo;</span>
+            </button>
+            <button class="login-user" type="button" data-login-user="shayan">
+                <span class="login-avatar">S</span>
+                <span><strong>Shayan</strong><small>Open Shayan's conversations</small></span>
+                <span class="login-arrow" aria-hidden="true">&rsaquo;</span>
+            </button>
+        </div>
+        <button class="login-cancel" id="btnLoginCancel" type="button" hidden>Cancel</button>
+        <p class="login-note">Each user has separate conversations and completed resources saved in LiveContent.</p>
+    </section>
+</div>
 <div class="shell" id="shell">
 
     <!-- ============ SOURCES ============ -->
@@ -73,6 +94,7 @@
                     </button>
                     <input type="file" id="panelFile" multiple hidden
                            accept=".pdf,.docx,.txt,.md,.csv,.html,.htm,.epub,.xlsx,.pptx">
+                    <div class="upload-hint">Supported: PDF, Word (.docx), text (.txt, .md), CSV, HTML, ePub, Excel (.xlsx), and PowerPoint (.pptx). PDFs, Word, and text are read in your browser; scanned PDFs and the other formats use server conversion/OCR.</div>
                 </div>
                 <div class="panel-search-row">
                     <fieldset class="scope-switch" aria-label="Source type">
@@ -148,6 +170,10 @@
                 <p class="chat-sub" id="chatSub">No sources selected</p>
             </div>
             <div style="display:flex;gap:2px">
+                <button class="user-pill" id="btnCurrentUser" type="button" title="Switch user">
+                    <span class="user-pill-avatar" id="currentUserAvatar">?</span>
+                    <span id="currentUserName">Choose user</span>
+                </button>
                 <button class="icon-btn" id="btnAllNotes" title="Completed Resources" aria-label="Completed Resources">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/></svg>
                 </button>
