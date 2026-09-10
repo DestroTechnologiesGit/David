@@ -15,17 +15,40 @@ const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
 const { Readable } = require("node:stream");
+const { StringDecoder } = require("node:string_decoder");
 
 const API_PREFIX = "/studio-api";
+const ALLOWED_API_ROUTES = new Set([
+    "/chat", "/search", "/models", "/voices", "/tts", "/convert",
+    "/share-note", "/shared-note", "/share-note-audio", "/shared-note-audio",
+]);
 const PORT = integerEnv("STUDIO_NODE_PORT", 18881);
 const HOST = process.env.STUDIO_NODE_HOST || "127.0.0.1";
 const GATEWAY = withoutTrailingSlash(process.env.OPENCLAW_GATEWAY || "http://127.0.0.1:18789");
 const HEALTH_RANK_URL = process.env.BIOFORMER_RANK_URL || "http://127.0.0.1:18880/health-rank";
 const CONVERT_URL = process.env.DOCUMENT_CONVERT_URL || "http://127.0.0.1:18880/convert";
 const KOKORO_URL = process.env.KOKORO_URL || "http://127.0.0.1:8890/api";
+const OLLAMA_CHAT_URL = process.env.OLLAMA_CHAT_URL || "http://127.0.0.1:11434/api/chat";
+const STUDIO_CHAT_MODEL = process.env.STUDIO_CHAT_MODEL || "qwen3:1.7b";
 const MAX_JSON_BYTES = integerEnv("STUDIO_MAX_JSON_BYTES", 2 * 1024 * 1024);
 const MAX_DOCUMENT_BYTES = integerEnv("STUDIO_MAX_DOCUMENT_BYTES", 25 * 1024 * 1024);
 const MAX_REQUESTS_PER_MINUTE = integerEnv("STUDIO_RATE_LIMIT", 120);
+const CHAT_DEFAULT_TOKENS = integerEnv("STUDIO_CHAT_DEFAULT_TOKENS", 768);
+const CHAT_MAX_TOKENS = integerEnv("STUDIO_CHAT_MAX_TOKENS", 3072);
+const CHAT_CONTEXT_TOKENS = integerEnv("STUDIO_CHAT_CONTEXT_TOKENS", 8192);
+const MAX_SHARED_AUDIO_BYTES = integerEnv("STUDIO_MAX_SHARED_AUDIO_BYTES", 64 * 1024 * 1024);
+const DEFAULT_SHARED_NOTES_DIR = process.env.SHARED_NOTES_DIR
+    || "/home/ubuntu/livecontent-shared-notes";
+const SHARE_ID = /^[a-f0-9]{32}$/;
+const SHARED_AUDIO_TYPES = new Set([
+    "audio/aac", "audio/mp4", "audio/mpeg", "audio/ogg", "audio/wav",
+    "audio/webm", "audio/x-wav",
+]);
+const CHAT_GUIDANCE = "Answer the user's latest request directly. Put the answer first. "
+    + "Follow any explicit output format exactly and do not add unrequested sections. "
+    + "Be concise unless the user asks for detail. Use supplied source context when relevant, "
+    + "say when it is insufficient, and do not substitute an answer to an earlier question. "
+    + "Return only user-visible answer text; never emit reply-routing tags.";
 const ALLOWED_MODELS = new Set(
     (process.env.STUDIO_ALLOWED_MODELS || "openclaw/studio,openclaw/translator")
         .split(",").map(value => value.trim()).filter(Boolean)
@@ -139,14 +162,15 @@ function requestAbortSignal(req, res) {
     return controller.signal;
 }
 
-async function proxyResponse(upstream, res) {
+async function proxyResponse(upstream, res, options = {}) {
     const headers = {
         "Content-Type": upstream.headers.get("content-type") || "application/octet-stream",
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
     };
     const disposition = upstream.headers.get("content-disposition");
-    if (disposition) headers["Content-Disposition"] = disposition;
+    if (options.inline) headers["Content-Disposition"] = "inline";
+    else if (disposition) headers["Content-Disposition"] = disposition;
     res.writeHead(upstream.status, headers);
     if (!upstream.body) return res.end();
     await new Promise((resolve, reject) => {
@@ -164,6 +188,270 @@ function validateMessages(messages) {
         && typeof message.content === "string" && message.content.length <= 100_000);
 }
 
+function requestedChatTokens(value) {
+    const requested = Number.isSafeInteger(value) && value > 0
+        ? value
+        : CHAT_DEFAULT_TOKENS;
+    return Math.min(requested, CHAT_MAX_TOKENS);
+}
+
+function normalizeSharedNote(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const title = String(value.title || "Untitled note").trim().slice(0, 200) || "Untitled note";
+    const body = typeof value.body === "string" ? value.body.trim() : "";
+    if (!body || body.length > 200_000) return null;
+    const resourceType = value.resourceType === "audio" ? "audio" : "note";
+    const audioMimeType = SHARED_AUDIO_TYPES.has(String(value.audioMimeType || "").toLowerCase())
+        ? String(value.audioMimeType).toLowerCase() : "";
+    if (resourceType === "audio" && !audioMimeType) return null;
+    const normalized = {
+        title,
+        body,
+        createdAt: Date.now(),
+        resourceType,
+    };
+    if (resourceType === "audio" && audioMimeType) {
+        normalized.hasAudio = true;
+        normalized.audioMimeType = audioMimeType;
+        normalized.audioLanguage = String(value.audioLanguage || "Narration").trim().slice(0, 80)
+            || "Narration";
+    }
+    return normalized;
+}
+
+let sharedNotesDir = DEFAULT_SHARED_NOTES_DIR;
+
+async function handleShareNote(req, res) {
+    const note = normalizeSharedNote(await readJson(req, 256 * 1024));
+    if (!note) {
+        return jsonResponse(res, 400, { error: "A non-empty, bounded note is required." });
+    }
+    fs.mkdirSync(sharedNotesDir, { recursive: true, mode: 0o700 });
+    for (let attempt = 0; attempt < 4; attempt++) {
+        const id = crypto.randomBytes(16).toString("hex");
+        const uploadToken = note.hasAudio ? crypto.randomBytes(24).toString("hex") : "";
+        if (uploadToken) {
+            note.audioUploadTokenHash = crypto.createHash("sha256").update(uploadToken).digest("hex");
+        }
+        try {
+            fs.writeFileSync(path.join(sharedNotesDir, `${id}.json`), JSON.stringify(note), {
+                encoding: "utf8",
+                flag: "wx",
+                mode: 0o600,
+            });
+            return jsonResponse(res, 201, uploadToken ? { id, uploadToken } : { id });
+        } catch (error) {
+            if (error.code !== "EEXIST") throw error;
+        }
+    }
+    throw new Error("A unique note link could not be created.");
+}
+
+function sharedNotePath(id) {
+    return path.join(sharedNotesDir, `${id}.json`);
+}
+
+function sharedAudioPath(id) {
+    return path.join(sharedNotesDir, `${id}.audio`);
+}
+
+function readStoredSharedNote(id) {
+    return JSON.parse(fs.readFileSync(sharedNotePath(id), "utf8"));
+}
+
+async function handleShareNoteAudio(req, res) {
+    const id = String(req.headers["x-share-id"] || "");
+    const uploadToken = String(req.headers["x-share-upload-token"] || "");
+    const mimeType = String(req.headers["content-type"] || "").split(";", 1)[0].trim().toLowerCase();
+    if (!SHARE_ID.test(id) || !/^[a-f0-9]{48}$/.test(uploadToken)) {
+        return jsonResponse(res, 400, { error: "Invalid audio upload." });
+    }
+    if (!SHARED_AUDIO_TYPES.has(mimeType)) {
+        return jsonResponse(res, 415, { error: "Unsupported shared audio format." });
+    }
+    try {
+        const note = readStoredSharedNote(id);
+        const suppliedHash = crypto.createHash("sha256").update(uploadToken).digest("hex");
+        if (!note.hasAudio || note.audioMimeType !== mimeType
+                || !note.audioUploadTokenHash || !safeEqual(suppliedHash, note.audioUploadTokenHash)) {
+            return jsonResponse(res, 403, { error: "This audio upload is not authorized." });
+        }
+        const audio = await readBody(req, MAX_SHARED_AUDIO_BYTES);
+        if (!audio.length) return jsonResponse(res, 400, { error: "Audio is required." });
+        const audioPath = sharedAudioPath(id);
+        fs.writeFileSync(audioPath, audio, { flag: "wx", mode: 0o600 });
+        try {
+            delete note.audioUploadTokenHash;
+            fs.writeFileSync(sharedNotePath(id), JSON.stringify(note), { mode: 0o600 });
+        } catch (error) {
+            fs.unlinkSync(audioPath);
+            throw error;
+        }
+        return jsonResponse(res, 201, { saved: true });
+    } catch (error) {
+        if (error.code === "ENOENT") return jsonResponse(res, 404, { error: "Shared note not found." });
+        if (error.code === "EEXIST") return jsonResponse(res, 409, { error: "Shared audio already exists." });
+        throw error;
+    }
+}
+
+async function handleSharedNote(req, res) {
+    const body = await readJson(req, 4 * 1024);
+    const id = String(body.id || "");
+    if (!SHARE_ID.test(id)) return jsonResponse(res, 400, { error: "Invalid shared note link." });
+    try {
+        const note = readStoredSharedNote(id);
+        const normalized = normalizeSharedNote(note);
+        if (!normalized) throw new Error("Invalid shared note data");
+        // Preserve the original share time rather than the normalizer's new timestamp.
+        normalized.createdAt = Number.isFinite(note.createdAt) ? note.createdAt : normalized.createdAt;
+        return jsonResponse(res, 200, { note: normalized });
+    } catch (error) {
+        if (error.code === "ENOENT") return jsonResponse(res, 404, { error: "Shared note not found." });
+        throw error;
+    }
+}
+
+async function handleSharedNoteAudio(req, res) {
+    const body = await readJson(req, 4 * 1024);
+    const id = String(body.id || "");
+    if (!SHARE_ID.test(id)) return jsonResponse(res, 400, { error: "Invalid shared note link." });
+    try {
+        const note = readStoredSharedNote(id);
+        const normalized = normalizeSharedNote(note);
+        if (!normalized || !normalized.hasAudio || note.audioUploadTokenHash) {
+            return jsonResponse(res, 404, { error: "Shared audio not found." });
+        }
+        const audioPath = sharedAudioPath(id);
+        const size = fs.statSync(audioPath).size;
+        res.writeHead(200, {
+            "Content-Type": normalized.audioMimeType,
+            "Content-Length": size,
+            "Content-Disposition": "inline",
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        });
+        await new Promise((resolve, reject) => {
+            const stream = fs.createReadStream(audioPath);
+            stream.on("error", reject);
+            res.on("close", resolve);
+            res.on("finish", resolve);
+            stream.pipe(res);
+        });
+    } catch (error) {
+        if (error.code === "ENOENT") return jsonResponse(res, 404, { error: "Shared audio not found." });
+        throw error;
+    }
+}
+
+function prepareChatMessages(messages, model) {
+    const copied = messages.map(message => ({ role: message.role, content: message.content }));
+    // The translation model has a strict machine-oriented prompt contract. The
+    // direct-answer instruction is for interactive Studio chat only.
+    if (model !== "openclaw/studio") return copied;
+    if (copied[0] && copied[0].role === "system") {
+        copied[0].content = `${CHAT_GUIDANCE}\n\n${copied[0].content}`;
+    } else {
+        copied.unshift({ role: "system", content: CHAT_GUIDANCE });
+    }
+    return copied;
+}
+
+function ollamaChatPayload(messages, stream, maxTokens) {
+    return {
+        model: STUDIO_CHAT_MODEL,
+        stream,
+        think: false,
+        keep_alive: "30m",
+        messages,
+        options: {
+            temperature: 0.2,
+            num_ctx: CHAT_CONTEXT_TOKENS,
+            num_predict: maxTokens,
+        },
+    };
+}
+
+function cleanAssistantOutput(value) {
+    return String(value || "")
+        .replace(/\[\[(?:\/?reply_to_current|reply_to:[^\]]+)\]\]/gi, "")
+        .trim();
+}
+
+function completionJson(content, usage = {}) {
+    return {
+        id: `chatcmpl_studio_${Date.now()}`,
+        object: "chat.completion",
+        created: Math.floor(Date.now() / 1000),
+        model: STUDIO_CHAT_MODEL,
+        choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }],
+        usage: {
+            prompt_tokens: usage.prompt_tokens || 0,
+            completion_tokens: usage.completion_tokens || 0,
+            total_tokens: (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
+        },
+    };
+}
+
+async function handleOllamaChat(res, messages, stream, maxTokens, signal) {
+    const upstream = await fetchWithTimeout(OLLAMA_CHAT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(ollamaChatPayload(messages, stream, maxTokens)),
+        signal,
+    });
+    if (!upstream.ok) {
+        const failure = await upstream.json().catch(() => null);
+        return jsonResponse(res, upstream.status, {
+            error: errorMessage(failure, `Local chat model failed with HTTP ${upstream.status}.`),
+        });
+    }
+
+    if (!stream) {
+        const result = await upstream.json();
+        return jsonResponse(res, 200, completionJson(cleanAssistantOutput(result.message && result.message.content), {
+            prompt_tokens: result.prompt_eval_count,
+            completion_tokens: result.eval_count,
+        }));
+    }
+
+    res.writeHead(200, {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-Accel-Buffering": "no",
+        "X-Content-Type-Options": "nosniff",
+    });
+    if (!upstream.body) throw new Error("Local chat model returned no response stream.");
+
+    let buffer = "";
+    let finished = false;
+    const decoder = new StringDecoder("utf8");
+    const emitLine = line => {
+        if (!line.trim()) return;
+        const event = JSON.parse(line);
+        if (event.error) throw new Error(event.error);
+        const content = event.message && event.message.content;
+        if (content) {
+            res.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { content } }] })}\n\n`);
+        }
+        if (event.done) finished = true;
+    };
+
+    for await (const chunk of upstream.body) {
+        buffer += decoder.write(Buffer.from(chunk));
+        let newline;
+        while ((newline = buffer.indexOf("\n")) !== -1) {
+            emitLine(buffer.slice(0, newline));
+            buffer = buffer.slice(newline + 1);
+        }
+    }
+    buffer += decoder.end();
+    if (buffer) emitLine(buffer);
+    if (!finished) throw new Error("Local chat model stream ended unexpectedly.");
+    res.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}\n\n`);
+    res.end("data: [DONE]\n\n");
+}
+
 async function handleChat(req, res) {
     const body = await readJson(req);
     const model = String(body.model || "openclaw/studio");
@@ -173,11 +461,18 @@ async function handleChat(req, res) {
     if (!validateMessages(body.messages)) {
         return jsonResponse(res, 400, { error: "A valid, bounded message list is required." });
     }
+    const messages = prepareChatMessages(body.messages, model);
+    const signal = requestAbortSignal(req, res);
+    const maxTokens = requestedChatTokens(body.max_completion_tokens);
+    if (model === "openclaw/studio") {
+        return handleOllamaChat(res, messages, body.stream !== false, maxTokens, signal);
+    }
+
     const payload = {
         model,
         stream: body.stream !== false,
         user: String(body.user || `studio-${Date.now()}`).slice(0, 160),
-        messages: body.messages,
+        messages,
     };
     const upstream = await fetchWithTimeout(`${GATEWAY}/v1/chat/completions`, {
         method: "POST",
@@ -186,7 +481,7 @@ async function handleChat(req, res) {
             Accept: payload.stream ? "text/event-stream" : "application/json",
         }),
         body: JSON.stringify(payload),
-        signal: requestAbortSignal(req, res),
+        signal,
     });
     await proxyResponse(upstream, res);
 }
@@ -247,7 +542,7 @@ async function invokeWebSearch(query, scope) {
         headers: gatewayHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
             tool: "web_search",
-            agentId: "studio",
+            agentId: "studio-search",
             args: { query: scopedSearchQuery(query, scope), count: 10 },
         }),
     }, 120_000);
@@ -265,7 +560,7 @@ async function agentWebSearch(query, scope) {
         method: "POST",
         headers: gatewayHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
-            model: "openclaw/studio",
+            model: "openclaw/studio-search",
             stream: false,
             user: `studio-search-${Date.now()}`,
             max_tokens: 1536,
@@ -350,7 +645,7 @@ async function handleTts(req, res) {
         body: JSON.stringify(body),
         signal: requestAbortSignal(req, res),
     });
-    await proxyResponse(response, res);
+    await proxyResponse(response, res, { inline: true });
 }
 
 async function handleConvert(req, res) {
@@ -371,8 +666,10 @@ async function handleConvert(req, res) {
 }
 
 function routePath(url) {
-    const pathname = new URL(url, "http://localhost").pathname.replace(/\/$/, "") || "/";
-    return pathname.startsWith(`${API_PREFIX}/`) ? pathname.slice(API_PREFIX.length) : pathname;
+    const raw = String(url || "");
+    const prefixed = raw.startsWith(`${API_PREFIX}/`) ? raw.slice(API_PREFIX.length) : raw;
+    const route = prefixed.replace(/\/$/, "");
+    return ALLOWED_API_ROUTES.has(route) && !raw.includes("?") && !raw.includes("#") ? route : null;
 }
 
 const rateBuckets = new Map();
@@ -397,10 +694,8 @@ function withinRateLimit(req) {
 async function handleRequest(req, res) {
     res.setHeader("Referrer-Policy", "same-origin");
     if (!withinRateLimit(req)) return jsonResponse(res, 429, { error: "Too many Studio requests. Try again shortly." });
-    if (!safeEqual(bearerToken(req), studioToken)) {
-        res.setHeader("WWW-Authenticate", 'Bearer realm="LiveContent Studio"');
-        return jsonResponse(res, 401, { error: "Invalid Studio access key." });
-    }
+    // The reverse-proxied Studio UI is public by design. The OpenClaw owner
+    // credential remains server-side and is never exposed to browsers.
 
     const route = routePath(req.url);
     if (req.method === "POST" && route === "/chat") return handleChat(req, res);
@@ -409,6 +704,10 @@ async function handleRequest(req, res) {
     if (req.method === "GET" && route === "/voices") return handleVoices(req, res);
     if (req.method === "POST" && route === "/tts") return handleTts(req, res);
     if (req.method === "POST" && route === "/convert") return handleConvert(req, res);
+    if (req.method === "POST" && route === "/share-note") return handleShareNote(req, res);
+    if (req.method === "POST" && route === "/shared-note") return handleSharedNote(req, res);
+    if (req.method === "POST" && route === "/share-note-audio") return handleShareNoteAudio(req, res);
+    if (req.method === "POST" && route === "/shared-note-audio") return handleSharedNoteAudio(req, res);
     return jsonResponse(res, 404, { error: "Not found" });
 }
 
@@ -418,6 +717,7 @@ let studioToken;
 function createServer(options = {}) {
     gatewayToken = options.gatewayToken || gatewayToken || readGatewayToken();
     studioToken = options.studioToken || studioToken || readStudioToken();
+    sharedNotesDir = options.sharedNotesDir || DEFAULT_SHARED_NOTES_DIR;
     return http.createServer((req, res) => {
         handleRequest(req, res).catch(error => {
             if (res.headersSent) return res.destroy();
@@ -446,7 +746,11 @@ module.exports = {
     cleanSearchText,
     createServer,
     normalizeResults,
+    normalizeSharedNote,
+    ollamaChatPayload,
     parseResults,
+    prepareChatMessages,
+    requestedChatTokens,
     routePath,
     safeEqual,
     scopedSearchQuery,

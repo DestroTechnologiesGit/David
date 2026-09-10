@@ -1,5 +1,18 @@
 # Caddy config for OpenClaw + Kokoro. See openclaw-ui/README.md.
 51-81-81-208.sslip.io, ai.livenetwork.ai, ai.livenetworks.ai {
+	# Reject path representations that can change meaning during normalization.
+	# This guard applies before any public or privileged handler is selected.
+	@ambiguousPath expression `{orig_uri}.matches("(?i)(%|//|/(?:[.]{1,2})(?:/|[?]|$))")`
+	handle @ambiguousPath {
+		respond "Not found" 404
+	}
+
+	# Encoded characters must not be used to spell the LiveContent mount name.
+	@encodedLivecontent expression `{path}.startsWith("/livecontent") && !{orig_path}.startsWith("/livecontent")`
+	handle @encodedLivecontent {
+		respond "Not found" 404
+	}
+
 	handle /kokoro {
 		redir * /kokoro/ 308
 	}
@@ -10,26 +23,62 @@
 
 	# Simplified NotebookLM-style UI.
 	handle /studio {
-		redir * /studio/ 308
+		redir * /livecontent/library.html? 308
+	}
+
+	handle_path /studio/* {
+		redir * /livecontent{uri} 308
+	}
+
+	handle /livecontent {
+		redir * /livecontent/library.html? 308
+	}
+
+	handle /livecontent/ {
+		redir * /livecontent/library.html? 308
+	}
+
+	# Match the original, unnormalized URI before Caddy cleans dot segments,
+	# encoded slashes, or duplicate separators. This prevents a malformed
+	# LiveContent path from being normalized into the root Control UI.
+	@invalidLivecontent expression `{orig_uri}.startsWith("/livecontent") && !{orig_uri}.matches("^/livecontent(?:/?|/(?:app[.]css|app[.]js|library[.]html|library[.]js|vendor/(?:pdf[.]min[.]mjs|pdf[.]worker[.]min[.]mjs)|books/?|notes/?|(?:conversations|notes)/[a-z0-9][a-z0-9-]{0,79}/?|shared/[a-f0-9]{32}/?))(?:[?].*)?$")`
+	handle @invalidLivecontent {
+		respond "Not found" 404
+	}
+
+	# LiveContent routes do not accept query-string features. Strip unexpected
+	# parameters before serving any UI or asset, keeping all actions button-led.
+	@livecontentQuery {
+		path /livecontent /livecontent/*
+		expression `{http.request.uri.query} != ""`
+	}
+	handle @livecontentQuery {
+		redir {http.request.uri.path}? 308
 	}
 
 	# Explicit browser-asset allowlist. Files such as serve.py, server.js and
 	# environment/service configuration must never be downloadable.
-	@studioAsset path /studio/app.css /studio/app.js /studio/library.html /studio/library.js /studio/vendor/*
+	@studioAsset path /livecontent/app.css /livecontent/app.js /livecontent/library.html /livecontent/library.js /livecontent/vendor/pdf.min.mjs /livecontent/vendor/pdf.worker.min.mjs
 	handle @studioAsset {
-		uri strip_prefix /studio
+		uri strip_prefix /livecontent
 		root * /home/ubuntu/openclaw-ui
 		header Cache-Control "no-cache, must-revalidate"
 		file_server
 	}
 
-	# Every other Studio path is an application/deep link and receives only
-	# index.html, even if a same-named private file exists in the directory.
-	handle_path /studio/* {
+	# Serve only the fixed pages and one sanitized local slug segment. Unknown
+	# paths never fall through to either index.html or the privileged Control UI.
+	@livecontentRoute path_regexp livecontentRoute ^/livecontent(?:/|/(?:books|notes)/?|/(?:conversations|notes)/[a-z0-9][a-z0-9-]{0,79}/?|/shared/[a-f0-9]{32}/?)$
+	handle @livecontentRoute {
+		uri strip_prefix /livecontent
 		root * /home/ubuntu/openclaw-ui
 		header Cache-Control "no-cache, must-revalidate"
 		rewrite * /index.html
 		file_server
+	}
+
+	handle /livecontent/* {
+		respond "Not found" 404
 	}
 
 	# Restricted backend-for-frontend. It holds the OpenClaw owner token and

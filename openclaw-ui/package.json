@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test server.test.js",
-    "check": "node --check server.js && node --check app.js",
+    "check": "node --check server.js && node --check app.js && node --check library.js",
     "vendor": "npm install && cp node_modules/pdfjs-dist/legacy/build/pdf.min.mjs node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs vendor/"
   },
   "dependencies": {

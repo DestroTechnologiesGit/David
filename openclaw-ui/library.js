@@ -11,6 +11,14 @@
     const CONVOS = 'openclaw.studio.convos.v1';
     // Which book index.html should open. Set here, read there.
     const ACTIVE = 'openclaw.studio.active.v1';
+    const BASE = '/livecontent';
+
+    // This page does not consume URL parameters or fragments. Remove them and
+    // refuse to derive navigation destinations from address-bar input.
+    const LIBRARY_PATH = BASE + '/library.html';
+    if (location.pathname !== LIBRARY_PATH || location.search || location.hash) {
+        history.replaceState(null, '', LIBRARY_PATH);
+    }
 
     function readJSON(key, fallback) {
         try {
@@ -153,8 +161,7 @@
         const book = convos.find(c => c.id === id || c.slug === id);
         if (!book) return;
         writeJSON(ACTIVE, book.id);
-        const base = location.pathname.replace(/\/library\.html$/, '').replace(/\/$/, '');
-        location.href = (base || '') + '/conversations/' + encodeURIComponent(book.slug);
+        location.href = BASE + '/conversations/' + encodeURIComponent(book.slug);
     }
 
     grid.addEventListener('click', e => {

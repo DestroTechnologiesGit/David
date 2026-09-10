@@ -25,8 +25,9 @@ OpenClaw Control UI, which stays available at its own URL for admin work.
   as soon as another language is selected. Completed translations can also be sent
   directly to Audio Overview. The same 164 language targets are offered for both
   tools: Kokoro provides high-quality,
-  downloadable audio for its eight trained languages; Microsoft's online voices
-  provide downloadable MP3/WAV audio for their supported languages; and an
+  audio playback for its eight trained languages; Microsoft's online voices
+  provide playback for their supported languages; generated audio can be saved
+  to Completed Resources, and an
   installed browser/device voice remains the playback fallback.
 
 ## Why a separate app
@@ -34,9 +35,11 @@ OpenClaw Control UI, which stays available at its own URL for admin work.
 The OpenClaw Control UI ships as a prebuilt bundle inside the npm package
 (`/usr/local/lib/node_modules/openclaw/dist/control-ui/`). It has no source in the
 published package and no build script, so it cannot be edited in place — any change
-is overwritten on `npm update`. The Node.js service talks to the gateway's
-documented OpenAI-compatible HTTP API. The browser cannot reach the gateway
-directly and never receives its owner-level credential.
+is overwritten on `npm update`. The Node.js service sends normal chat directly to
+the local Ollama model with thinking and tools disabled, avoiding the generic agent
+prompt on every question. Web search and translation still use the gateway's
+documented APIs. The browser cannot reach either service directly and never
+receives the gateway's owner-level credential.
 
 ## Testing locally
 
@@ -72,13 +75,9 @@ Select **Test connection** first; it should list the available agent targets.
 Python helper options: `--port 9000`, `--backend http://otherhost:18881`,
 `--timeout 900`. The Node service has no runtime npm dependencies.
 
-> Agent replies can take **minutes**. The send button turns into a red Stop
-> button while one is in flight, so a slow reply is cancellable rather than
-> looking frozen.
->
-> If replies routinely take minutes, check the gateway log for
-> `Rate limit reached` — the configured model may be throttled, and the gateway
-> then retries down its fallback chain. That is a model/quota issue, not a UI one.
+> The first reply after the model has unloaded can take longer while Ollama loads
+> it. Later replies reuse the warm model. The send button becomes a red Stop
+> button while a reply is in flight.
 
 ## Deploying
 
@@ -245,20 +244,30 @@ browser's local storage only.
 
 - Conversations and notes are stored per browser (`localStorage`); they are not
   synced between devices and clearing site data removes them.
+- The conversation-level **Save to completed resources** action snapshots the
+  entire current book. Each visible question/answer exchange is separated as a
+  page, and later saves create V2, V3, and subsequent versions without replacing
+  earlier snapshots.
+- **Copy note link** creates a read-only snapshot in `SHARED_NOTES_DIR` and
+  copies an unguessable `/livecontent/shared/<id>` URL. Anyone who receives the
+  URL can read that snapshot. Saved audio resources include their playback-only
+  audio; arbitrary URL segments and query-string features remain rejected by
+  Caddy.
 - The restricted Studio key is held in local storage. It can use Studio
   features but cannot call arbitrary OpenClaw gateway or administration routes.
 - Audio Overview sends narration to the configured speech service, capped at
   5,000 characters. Selecting the online multilingual voice sends that narration
-  text to Microsoft's speech service so Studio can return a downloadable file.
-- Sources are attached to each request as a system message, not indexed. There
-  is no retrieval layer, so very large documents are truncated (20,000
-  characters per source) and many ticked sources at once can exceed the model's
-  context window. Untick what a question does not need.
+  text to Microsoft's speech service so Studio can return playable audio that
+  can be saved to Completed Resources.
+- Sources are attached to each request as a system message, not indexed. Studio
+  shares an 8,000-character budget across selected sources and extracts the
+  passages most relevant to the latest question. Untick sources a question does
+  not need.
 - Health/Clinical search and ranking logic is server-only. Results are
   semantically ranked with the
   Apache-2.0 `bioformers/bioformer-8L` biomedical language model. The ranker is
-  CPU-capable and is used only to order evidence; OpenClaw still writes the
-  response. Set `BIOFORMER_MODEL` to a local Hugging Face snapshot path and
+  CPU-capable and is used only to order evidence; the local Studio model still
+  writes the response. Set `BIOFORMER_MODEL` to a local Hugging Face snapshot path and
   `BIOFORMER_LOCAL_ONLY=1` in production so requests never download models.
 - Minification or obfuscation is not treated as a security control. UI code is
   necessarily visible to browsers; credentials and protected orchestration
